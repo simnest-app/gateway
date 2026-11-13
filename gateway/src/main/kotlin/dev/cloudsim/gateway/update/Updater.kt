@@ -39,11 +39,14 @@ object Updater {
     }
 
     private const val TAG = "CloudSimGateway"
+    private const val MAX_ANSWER = 512 * 1024
     private val state = MutableStateFlow<State>(State.Idle)
     val current: StateFlow<State> get() = state
     private val busy = AtomicBoolean()
     private val worker = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "update").apply { isDaemon = true } }
     @Volatile private var scheduled = false
+    /** What the sites offered at the last look: the same version from the other site is the fallback for a download. */
+    @Volatile private var offers: List<Release> = emptyList()
 
     fun auto(context: Context) = prefs(context).getBoolean("auto", false)
     fun setAuto(context: Context, on: Boolean) = prefs(context).edit().putBoolean("auto", on).apply()
@@ -74,19 +77,25 @@ object Updater {
         try {
             state.value = State.Checking
             var reached = false
-            var problem: String? = null
+            var problem: Throwable? = null
             val found = sources().mapNotNull { (source, url) ->
-                runCatching { get(url) }.onFailure { problem = it.message }.getOrNull()?.let { (status, text) ->
+                val from = System.nanoTime()
+                // Any Throwable: a missing system method on an older Android is an Error, not an Exception.
+                val got = try { get(url) } catch (t: Throwable) { problem = t; Log.w(TAG, "update check on $source failed: $t"); null }
+                got?.let { (status, text) ->
                     // 404: the repository has published nothing yet, which is an answer.
-                    if (status == 200 || status == 404) reached = true else problem = "HTTP $status"
-                    if (status == 200) runCatching { Releases.parse(source, JSONObject(text)) }.getOrNull() else null
+                    if (status == 200 || status == 404) reached = true else Log.w(TAG, "update check on $source: HTTP $status")
+                    if (status == 200) runCatching { Releases.parse(source, JSONObject(text))?.copy(askedMs = (System.nanoTime() - from) / 1_000_000) }.getOrNull() else null
                 }
             }
+            offers = found
             val newest = Releases.newest(found, BuildConfig.VERSION_CODE)
             state.value = when {
                 newest != null -> State.Available(newest)
                 reached -> State.UpToDate
-                else -> State.Failed(L.t("查不了更新：%1\$s", problem ?: L.t("没有回应")))
+                // What went wrong is in the log; the screen says what it means for the user.
+                problem is java.io.IOException || problem == null -> State.Failed(L.t("现在连不上 GitHub 和 Gitee，查不了有没有新版本。过一会儿再试"))
+                else -> State.Failed(L.t("检查更新时出了问题，没查成。请发一份诊断日志给开发者"))
             }
             Log.i(TAG, "update check: ${newest?.let { "${it.versionName} (${it.versionCode}) on ${it.source}" } ?: if (reached) "up to date" else "unreachable"}")
             return newest
@@ -101,7 +110,14 @@ object Updater {
         try {
             if (inCall(context)) return fail(L.t("正在通话，挂断后再更新"), release)
             state.value = State.Downloading(release, 0)
-            val file = runCatching { download(context, release) }.getOrElse { return fail(L.t("下载没成功：%1\$s", it.message ?: it.javaClass.simpleName), release) }
+            // The site it was offered from first, then the same version from the other one.
+            val places = listOf(release) + offers.filter { it.versionCode == release.versionCode && it.source != release.source }
+            var file: File? = null
+            for (place in places) {
+                file = try { download(context, place) } catch (t: Throwable) { Log.w(TAG, "download from ${place.source} failed: $t"); null }
+                if (file != null) break
+            }
+            if (file == null) return fail(L.t("下载没成功，GitHub 和 Gitee 都试过了。过一会儿再试"), release)
             verify(context, file)?.let { why ->
                 file.delete()
                 return fail(L.t("下载到的安装包不能用：%1\$s", why), release)
@@ -181,7 +197,17 @@ object Updater {
         val c = open(url, "application/json")
         try {
             val status = c.responseCode
-            val text = (if (status < 400) c.inputStream else c.errorStream)?.use { s -> String(s.readNBytes(512 * 1024)) }.orEmpty()
+            // Read by hand up to a limit: InputStream.readNBytes(int) only exists from Android 13 (found on a Mate 40, 2026-11-13).
+            val text = (if (status < 400) c.inputStream else c.errorStream)?.use { s ->
+                val out = java.io.ByteArrayOutputStream()
+                val buffer = ByteArray(16 * 1024)
+                while (out.size() < MAX_ANSWER) {
+                    val n = s.read(buffer, 0, minOf(buffer.size, MAX_ANSWER - out.size()))
+                    if (n < 0) break
+                    out.write(buffer, 0, n)
+                }
+                out.toString("UTF-8")
+            }.orEmpty()
             return status to text
         } finally {
             c.disconnect()

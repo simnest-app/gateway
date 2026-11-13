@@ -1,0 +1,1187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 9.5.0" type="baseline" client="gradle" dependencies="false" name="AGP (9.5.0)" variant="all" version="9.5.0">
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by TelecomManager.silenceRinger: android.permission.MODIFY_PHONE_STATE"
+        errorLine1="                if (Quiet.on(context) &amp;&amp; !emergency) runCatching { context.getSystemService(TelecomManager::class.java)?.silenceRinger() }"
+        errorLine2="                                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/InCall.kt"
+            line="140"
+            column="68"/>
+    </issue>
+
+    <issue
+        id="ApplySharedPref"
+        message="Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+        errorLine1="                    progress.edit().putLong(&quot;after&quot;, after).commit()"
+        errorLine2="                                                            ~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/GatewayService.kt"
+            line="484"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="ApplySharedPref"
+        message="Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+        errorLine1="        set(v) { prefs.edit().putString(&quot;phone_id&quot;, v).commit() }"
+        errorLine2="                                                       ~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/GatewayService.kt"
+            line="703"
+            column="56"/>
+    </issue>
+
+    <issue
+        id="ApplySharedPref"
+        message="Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+        errorLine1="        set(v) { prefs.edit().putString(&quot;previous_owner&quot;, v?.id).putInt(&quot;previous_revision&quot;, v?.revision ?: 0).commit() }"
+        errorLine2="                                                                                                               ~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/GatewayService.kt"
+            line="706"
+            column="112"/>
+    </issue>
+
+    <issue
+        id="ApplySharedPref"
+        message="Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+        errorLine1="        set(v) { prefs.edit().putString(&quot;recovery_key&quot;, v?.let(ControlClient::b64)).commit() }"
+        errorLine2="                                                                                    ~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/GatewayService.kt"
+            line="709"
+            column="85"/>
+    </issue>
+
+    <issue
+        id="ApplySharedPref"
+        message="Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+        errorLine1="            context.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear().commit()"
+        errorLine2="                                                                                    ~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/pairing/OwnerReset.kt"
+            line="27"
+            column="85"/>
+    </issue>
+
+    <issue
+        id="ApplySharedPref"
+        message="Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+        errorLine1="        context.getSharedPreferences(&quot;screening&quot;, Context.MODE_PRIVATE).edit().remove(&quot;digest_key&quot;).commit()"
+        errorLine2="                                                                                                    ~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/pairing/OwnerReset.kt"
+            line="29"
+            column="101"/>
+    </issue>
+
+    <issue
+        id="DiscouragedPrivateApi"
+        message="Reflective access to getSystemContext, which is not part of the public SDK and therefore likely to change in future Android releases"
+        errorLine1="        Method getSystem = cls.getDeclaredMethod(&quot;getSystemContext&quot;);"
+        errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/cloudsim/gateway/shell/BridgeMain.java"
+            line="1507"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 29): `android.content.AttributionSource.Builder#build`"
+        errorLine1="            return new AttributionSource.Builder(android.os.Process.SHELL_UID).setPackageName(SHELL).build();"
+        errorLine2="                                                                                                     ~~~~~">
+        <location
+            file="src/main/java/dev/cloudsim/gateway/shell/BridgeMain.java"
+            line="1524"
+            column="102"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 29): `android.content.AttributionSource.Builder#setPackageName`"
+        errorLine1="            return new AttributionSource.Builder(android.os.Process.SHELL_UID).setPackageName(SHELL).build();"
+        errorLine2="                                                                               ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/cloudsim/gateway/shell/BridgeMain.java"
+            line="1524"
+            column="80"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 29): `new android.content.AttributionSource.Builder`"
+        errorLine1="            return new AttributionSource.Builder(android.os.Process.SHELL_UID).setPackageName(SHELL).build();"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/cloudsim/gateway/shell/BridgeMain.java"
+            line="1524"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.telephony.SubscriptionManager#addOnSubscriptionsChangedListener`"
+        errorLine1="            sm.addOnSubscriptionsChangedListener(mainExecutor, subscriptions)"
+        errorLine2="               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/GatewayService.kt"
+            line="335"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.telephony.TelephonyManager#getSubscriptionId`"
+        errorLine1="            runCatching { tm.getSubscriptionId(handle) }.getOrNull()?.takeIf { it >= 0 }?.let { return it }"
+        errorLine2="                             ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/GatewayService.kt"
+            line="588"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 29): `android.telephony.TelephonyManager#getCallStateForSubscription`"
+        errorLine1="                ?: numbers.current().filter { it.active }.firstOrNull { tm.createForSubscriptionId(it.subscriptionId).callStateForSubscription == TelephonyManager.CALL_STATE_RINGING }?.subscriptionId"
+        errorLine2="                                                                                                                      ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/GatewayService.kt"
+            line="613"
+            column="119"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 29): `android.telecom.Call.Details#getState`"
+        errorLine1="    @Synchronized fun active(): Call? = calls.firstOrNull { it.details.state != Call.STATE_DISCONNECTED }"
+        errorLine2="                                                                       ~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/InCall.kt"
+            line="80"
+            column="72"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 29): `android.telecom.Call.Details#getState`"
+        errorLine1="    @Synchronized fun ringing(): Call? = calls.firstOrNull { it.details.state == Call.STATE_RINGING }"
+        errorLine2="                                                                        ~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/InCall.kt"
+            line="81"
+            column="73"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 29): `android.telecom.Call.Details#getState`"
+        errorLine1="        calls.firstOrNull { it.details.state == Call.STATE_SELECT_PHONE_ACCOUNT }?.let { it.phoneAccountSelected(handle, false); true } ?: false"
+        errorLine2="                                       ~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/InCall.kt"
+            line="107"
+            column="40"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 29): `android.telecom.Call.Details#getState`"
+        errorLine1="        dev.cloudsim.gateway.GatewayLog.detail(&quot;telecom state=${call.details.state} dialing=$dialing emergency=$emergency&quot;)"
+        errorLine2="                                                                             ~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/InCall.kt"
+            line="136"
+            column="78"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 29): `android.telecom.Call.Details#getState`"
+        errorLine1="        when (call.details.state) {"
+        errorLine2="                           ~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/InCall.kt"
+            line="137"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 29): `android.telecom.Call.Details#getState`"
+        errorLine1="        when (call.details.state) {"
+        errorLine2="                           ~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/InCall.kt"
+            line="150"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 29): `android.telecom.Call.Details#getState`"
+        errorLine1="        view.value = CallView(number(c), c.details.state, c.details.callDirection == Call.Details.DIRECTION_INCOMING,"
+        errorLine2="                                                   ~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/InCall.kt"
+            line="162"
+            column="52"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 29): `android.telecom.Call.Details#getState`"
+        errorLine1="        val call = active()?.takeIf { it.details.state == Call.STATE_ACTIVE } ?: return false"
+        errorLine2="                                                 ~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/InCall.kt"
+            line="179"
+            column="50"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 29): `android.telephony.SmsManager#createForSubscriptionId`"
+        errorLine1="        numberId?.let(subscriptionFor)?.let { sub -> runCatching { manager.createForSubscriptionId(sub) }.getOrNull() } ?: manager"
+        errorLine2="                                                                           ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/sms/SmsStore.kt"
+            line="149"
+            column="76"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 29): `android.telephony.TelephonyManager#getActiveModemCount`"
+        errorLine1="        val slots = runCatching { context.getSystemService(TelephonyManager::class.java).activeModemCount }.getOrDefault(2)"
+        errorLine2="                                                                                         ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/numbers/SystemSims.kt"
+            line="32"
+            column="90"/>
+    </issue>
+
+    <issue
+        id="OldTargetApi"
+        message="Not targeting the latest versions of Android; compatibility modes apply. Consider testing and updating this version. Consult the `android.os.Build.VERSION_CODES` javadoc for details."
+        errorLine1="        targetSdk = 36"
+        errorLine2="        ~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="40"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="PrivateApi"
+        message="Accessing internal APIs via reflection is not supported and may not work on all devices or in the future"
+        errorLine1="            return (boolean) Class.forName(&quot;android.media.AudioSystem&quot;).getMethod(&quot;isMicrophoneMuted&quot;).invoke(null);"
+        errorLine2="                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/cloudsim/gateway/shell/BridgeMain.java"
+            line="1411"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="PrivateApi"
+        message="Accessing internal APIs via reflection is not supported and may not work on all devices or in the future"
+        errorLine1="            int rc = (int) Class.forName(&quot;android.media.AudioSystem&quot;).getMethod(name, types).invoke(null, values);"
+        errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/cloudsim/gateway/shell/BridgeMain.java"
+            line="1415"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="PrivateApi"
+        message="Accessing internal APIs via reflection is not supported and may not work on all devices or in the future"
+        errorLine1="        Class&lt;?> cls = Class.forName(&quot;android.app.ActivityThread&quot;);"
+        errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/cloudsim/gateway/shell/BridgeMain.java"
+            line="1490"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="PrivateApi"
+        message="Accessing internal APIs via reflection is not supported and may not work on all devices or in the future"
+        errorLine1="        Class&lt;?> bindCls = Class.forName(&quot;android.app.ActivityThread$AppBindData&quot;);"
+        errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/cloudsim/gateway/shell/BridgeMain.java"
+            line="1499"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="SdCardPath"
+        message="Do not hardcode &quot;/sdcard/&quot;; use `Environment.getExternalStorageDirectory().getPath()` instead"
+        errorLine1="    private static final String TOKEN = &quot;/sdcard/Android/data/dev.cloudsim.gateway/files/bridge-token&quot;;"
+        errorLine2="                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/cloudsim/gateway/shell/BridgeMain.java"
+            line="50"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="SoonBlockedPrivateApi"
+        message="Reflective access to mSystemThread will throw an exception when targeting API 36 and above"
+        errorLine1="        Field system = cls.getDeclaredField(&quot;mSystemThread&quot;);"
+        errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/cloudsim/gateway/shell/BridgeMain.java"
+            line="1495"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `localeConfig` is only used in API level 33 and higher (current min is 29)"
+        errorLine1="        android:localeConfig=&quot;@xml/locales_config&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="39"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="NonObservableLocale"
+        message="Reading locale in a non-observable way in a composable function"
+        errorLine1="        Text(L.t(&quot;上次自检：%1\$s&quot;, SimpleDateFormat(&quot;MM-dd HH:mm&quot;, Locale.getDefault()).format(Date(it))), style = MaterialTheme.typography.bodySmall)"
+        errorLine2="                                                               ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/selftest/SelfTestScreen.kt"
+            line="95"
+            column="64"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of Gradle than 9.8.2 is available: 9.9.1"
+        errorLine1="distributionUrl=https\://services.gradle.org/distributions/gradle-9.8.2-bin.zip"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="$HOME/Project/CloudSIM/android/gradle/wrapper/gradle-wrapper.properties"
+            line="4"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.application than 9.5.0 is available: 9.5.1"
+        errorLine1="agp = &quot;9.5.0&quot;"
+        errorLine2="      ~~~~~~~">
+        <location
+            file="$HOME/Project/CloudSIM/android/gradle/libs.versions.toml"
+            line="2"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.apache.commons:commons-compress than 1.27.1 is available: 1.28.0"
+        errorLine1="commons-compress = &quot;1.27.1&quot;"
+        errorLine2="                   ~~~~~~~~">
+        <location
+            file="$HOME/Project/CloudSIM/android/gradle/libs.versions.toml"
+            line="18"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="SwitchIntDef"
+        message="Switch statement on an `int` with known associated constant missing case `Call.STATE_AUDIO_PROCESSING`, `Call.STATE_DISCONNECTING`, `Call.STATE_HOLDING`, `Call.STATE_NEW`, `Call.STATE_PULLING_CALL`, `Call.STATE_SELECT_PHONE_ACCOUNT`, `Call.STATE_SIMULATED_RINGING`"
+        errorLine1="        when (call.details.state) {"
+        errorLine2="        ~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/InCall.kt"
+            line="137"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ChromeOsAbiSupport"
+        message="Missing x86_64 ABI support for ChromeOS"
+        errorLine1="        ndk { abiFilters += &quot;arm64-v8a&quot; }"
+        errorLine2="                            ~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="44"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="PermissionImpliesUnsupportedChromeOsHardware"
+        message="Permission exists without corresponding hardware `&lt;uses-feature android:name=&quot;android.hardware.telephony&quot; android:required=&quot;false&quot; />` tag"
+        errorLine1="    &lt;uses-permission android:name=&quot;android.permission.CALL_PHONE&quot; />"
+        errorLine2="     ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="12"
+            column="6"/>
+    </issue>
+
+    <issue
+        id="PermissionImpliesUnsupportedChromeOsHardware"
+        message="Permission exists without corresponding hardware `&lt;uses-feature android:name=&quot;android.hardware.telephony&quot; android:required=&quot;false&quot; />` tag"
+        errorLine1="    &lt;uses-permission android:name=&quot;android.permission.RECEIVE_SMS&quot; />"
+        errorLine2="     ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="15"
+            column="6"/>
+    </issue>
+
+    <issue
+        id="PermissionImpliesUnsupportedChromeOsHardware"
+        message="Permission exists without corresponding hardware `&lt;uses-feature android:name=&quot;android.hardware.telephony&quot; android:required=&quot;false&quot; />` tag"
+        errorLine1="    &lt;uses-permission android:name=&quot;android.permission.SEND_SMS&quot; />"
+        errorLine2="     ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="17"
+            column="6"/>
+    </issue>
+
+    <issue
+        id="PermissionImpliesUnsupportedChromeOsHardware"
+        message="Permission exists without corresponding hardware `&lt;uses-feature android:name=&quot;android.hardware.telephony&quot; android:required=&quot;false&quot; />` tag"
+        errorLine1="    &lt;uses-permission android:name=&quot;android.permission.READ_SMS&quot; />"
+        errorLine2="     ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="18"
+            column="6"/>
+    </issue>
+
+    <issue
+        id="PermissionImpliesUnsupportedChromeOsHardware"
+        message="Permission exists without corresponding hardware `&lt;uses-feature android:name=&quot;android.hardware.telephony&quot; android:required=&quot;false&quot; />` tag"
+        errorLine1="    &lt;uses-permission android:name=&quot;android.permission.RECEIVE_MMS&quot; />"
+        errorLine2="     ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="24"
+            column="6"/>
+    </issue>
+
+    <issue
+        id="PermissionImpliesUnsupportedChromeOsHardware"
+        message="Permission exists without corresponding hardware `&lt;uses-feature android:name=&quot;android.hardware.telephony&quot; android:required=&quot;false&quot; />` tag"
+        errorLine1="    &lt;uses-permission android:name=&quot;android.permission.RECEIVE_WAP_PUSH&quot; />"
+        errorLine2="     ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="25"
+            column="6"/>
+    </issue>
+
+    <issue
+        id="HardwareIds"
+        message="Using `getLine1Number` to get device identifiers is not recommended"
+        errorLine1="                    else @Suppress(&quot;DEPRECATION&quot;) t.line1Number"
+        errorLine2="                                                  ~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/numbers/SystemSims.kt"
+            line="50"
+            column="51"/>
+    </issue>
+
+    <issue
+        id="HardwareIds"
+        message="Using `getLine1Number` to get device identifiers is not recommended"
+        errorLine1="                    context.getSystemService(TelephonyManager::class.java).createForSubscriptionId(info.subscriptionId).line1Number"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/numbers/SystemSims.kt"
+            line="66"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="TrustAllX509TrustManager"
+        message="`checkServerTrusted` is empty, which could cause insecure network traffic due to trusting arbitrary TLS/SSL certificates presented by peers">
+        <location
+            file="$GRADLE_USER_HOME/caches/modules-2/files-2.1/org.bouncycastle/bcpkix-jdk18on/1.86/fb5ea65959db10fe5d61148bb2b77f6e231455b1/bcpkix-jdk18on-1.86.jar"/>
+    </issue>
+
+    <issue
+        id="TrustAllX509TrustManager"
+        message="`checkClientTrusted` is empty, which could cause insecure network traffic due to trusting arbitrary TLS/SSL certificates presented by peers">
+        <location
+            file="$GRADLE_USER_HOME/caches/9.8.2/transforms/45cf3c07f346c3fc35ea5655dd680fb7/transformed/kadb/jars/classes.jar"/>
+    </issue>
+
+    <issue
+        id="TrustAllX509TrustManager"
+        message="`checkServerTrusted` is empty, which could cause insecure network traffic due to trusting arbitrary TLS/SSL certificates presented by peers">
+        <location
+            file="$GRADLE_USER_HOME/caches/9.8.2/transforms/45cf3c07f346c3fc35ea5655dd680fb7/transformed/kadb/jars/classes.jar"/>
+    </issue>
+
+    <issue
+        id="UnsafeProtectedBroadcastReceiver"
+        message="This broadcast receiver declares an intent-filter for a protected broadcast action string, which can only be sent by the system, not third-party applications. However, the receiver&apos;s onReceive method does not appear to call getAction to ensure that the received Intent&apos;s action string matches the expected value, potentially making it possible for another actor to send a spoofed intent with no action string or a different action string and cause undesired behavior. In this case, it is possible that the onReceive method passed the received Intent to another method that checked the action string. If so, this finding can safely be ignored."
+        errorLine1="    override fun onReceive(context: Context, intent: Intent) {"
+        errorLine2="                 ~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/sms/DefaultSms.kt"
+            line="82"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="UnsafeProtectedBroadcastReceiver"
+        message="This broadcast receiver declares an intent-filter for a protected broadcast action string, which can only be sent by the system, not third-party applications. However, the receiver&apos;s onReceive method does not appear to call getAction to ensure that the received Intent&apos;s action string matches the expected value, potentially making it possible for another actor to send a spoofed intent with no action string or a different action string and cause undesired behavior. In this case, it is possible that the onReceive method passed the received Intent to another method that checked the action string. If so, this finding can safely be ignored."
+        errorLine1="    override fun onReceive(context: Context, intent: Intent) {"
+        errorLine2="                 ~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/sms/DefaultSms.kt"
+            line="97"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="CustomX509TrustManager"
+        message="Implementing a custom `X509TrustManager` is error-prone and likely to be insecure. It is likely to disable certificate validation altogether, and is non-trivial to implement correctly without calling Android&apos;s default implementation."
+        errorLine1="            val pinned = object : X509TrustManager {"
+        errorLine2="                         ~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/net/ControlClient.kt"
+            line="43"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="UnsafeDynamicallyLoadedCode"
+        message="Dynamically loading code using `load` is risky, please use `loadLibrary` instead when possible"
+        errorLine1="        System.load(args[1] + &quot;/libjingle_peerconnection_so.so&quot;);"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/cloudsim/gateway/shell/BridgeMain.java"
+            line="105"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UnsafeDynamicallyLoadedCode"
+        message="Dynamically loading code using `load` is risky, please use `loadLibrary` instead when possible"
+        errorLine1="            System.load(libraryDir + &quot;/libplumjni.so&quot;);"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/cloudsim/gateway/shell/PortMap.java"
+            line="34"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="DataExtractionRules"
+        message="The attribute `android:allowBackup` is deprecated from Android 12 and higher and may be removed in future versions. Consider adding the attribute `android:dataExtractionRules` specifying an `@xml` resource which configures cloud backups and device transfers on Android 12 and higher."
+        errorLine1="        android:allowBackup=&quot;false&quot;"
+        errorLine2="                             ~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="36"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="This folder configuration (`v26`) is unnecessary; `minSdkVersion` is 29. Merge all the resources in this folder into `mipmap-anydpi`.">
+        <location
+            file="src/main/res/mipmap-anydpi-v26"/>
+    </issue>
+
+    <issue
+        id="StaticFieldLeak"
+        message="Do not place Android context classes in static fields; this is a memory leak"
+        errorLine1="    private static Context context;"
+        errorLine2="            ~~~~~~">
+        <location
+            file="src/main/java/dev/cloudsim/gateway/shell/BridgeMain.java"
+            line="76"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="StaticFieldLeak"
+        message="Do not place Android context classes in static fields (static reference to `JavaAudioDeviceModule` which has field `context` pointing to `Context`); this is a memory leak"
+        errorLine1="    private static JavaAudioDeviceModule adm;"
+        errorLine2="            ~~~~~~">
+        <location
+            file="src/main/java/dev/cloudsim/gateway/shell/BridgeMain.java"
+            line="81"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="StaticFieldLeak"
+        message="Do not place Android context classes in static fields (static reference to `CellularPath` which has field `context` pointing to `Context`); this is a memory leak"
+        errorLine1="        /** The running gateway&apos;s, for the screen&apos;s live direct-path state; null when the gateway is off. */"
+        errorLine2="        ^">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/CellularPath.kt"
+            line="94"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="StaticFieldLeak"
+        message="Do not place Android context classes in static fields (static reference to `PairingOverlay` which has field `view` pointing to `View`); this is a memory leak"
+        errorLine1="/**"
+        errorLine2="^">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/adb/PairingOverlay.kt"
+            line="22"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="StaticFieldLeak"
+        message="Do not place Android context classes in static fields; this is a memory leak"
+        errorLine1="    private var view: View? = null"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/adb/PairingOverlay.kt"
+            line="29"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="StaticFieldLeak"
+        message="Do not place Android context classes in static fields (static reference to `Performance` which has field `app` pointing to `Context`); this is a memory leak"
+        errorLine1="/** The gateway&apos;s own gate: what limits it is read from the system, and the page is [PerformanceActivity]. */"
+        errorLine2="^">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/Performance.kt"
+            line="130"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="StaticFieldLeak"
+        message="Do not place Android context classes in static fields; this is a memory leak"
+        errorLine1="    @Volatile private var app: Context? = null"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/Performance.kt"
+            line="133"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="    var asked by remember { mutableStateOf(0) }"
+        errorLine2="                            ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/MainActivity.kt"
+            line="243"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.status_not_set_up` appears to be unused"
+        errorLine1="    &lt;string name=&quot;status_not_set_up&quot;>尚未设置&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="4"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UsableSpace"
+        message="Consider also using `StorageManager#getAllocatableBytes` and `allocateBytes` which will consider clearable cached data"
+        errorLine1="        val free = { filesDir.usableSpace }"
+        errorLine2="                              ~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/GatewayService.kt"
+            line="194"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        fun set(context: Context, on: Boolean) = context.getSharedPreferences(&quot;gateway&quot;, Context.MODE_PRIVATE).edit().putBoolean(&quot;cellular_direct&quot;, on).apply()"
+        errorLine2="                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/CellularPath.kt"
+            line="105"
+            column="50"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="    fun confirmNoticeSms(context: Context) = context.getSharedPreferences(&quot;setup&quot;, Context.MODE_PRIVATE).edit().putBoolean(&quot;notice_sms&quot;, true).apply()"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/FeatureStatus.kt"
+            line="61"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="        val details = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse(&quot;package:${context.packageName}&quot;))"
+        errorLine2="                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/FeatureStatus.kt"
+            line="119"
+            column="76"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, if (on) &quot;full&quot; else &quot;basic&quot;).apply()"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/GatewayLog.kt"
+            line="28"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        keeper = PolicyKeeper(client, owner, lease, { getSharedPreferences(&quot;sharing&quot;, MODE_PRIVATE).edit().putString(&quot;policy&quot;, it).apply() }, {"
+        errorLine2="                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/GatewayService.kt"
+            line="171"
+            column="55"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        val recordingSettings = dev.cloudsim.gateway.recording.RecordingSettings({ recordingPrefs.getString(&quot;numbers&quot;, null) }, { recordingPrefs.edit().putString(&quot;numbers&quot;, it).apply() })"
+        errorLine2="                                                                                                                                  ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/GatewayService.kt"
+            line="193"
+            column="131"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="                    recordingPrefs.edit().putBoolean(&quot;notice_existing&quot;, true).apply()"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/GatewayService.kt"
+            line="213"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="                    progress.edit().putLong(&quot;after&quot;, after).commit()"
+        errorLine2="                    ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/GatewayService.kt"
+            line="484"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            context.getSharedPreferences(&quot;gateway&quot;, MODE_PRIVATE).edit().putBoolean(&quot;enabled&quot;, enabled).apply()"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/GatewayService.kt"
+            line="684"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        set(v) { prefs.edit().putString(&quot;phone_id&quot;, v).commit() }"
+        errorLine2="                 ~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/GatewayService.kt"
+            line="703"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        set(v) { prefs.edit().putString(&quot;previous_owner&quot;, v?.id).putInt(&quot;previous_revision&quot;, v?.revision ?: 0).commit() }"
+        errorLine2="                 ~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/GatewayService.kt"
+            line="706"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        set(v) { prefs.edit().putString(&quot;recovery_key&quot;, v?.let(ControlClient::b64)).commit() }"
+        errorLine2="                 ~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/GatewayService.kt"
+            line="709"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="    fun set(context: Context, quiet: Boolean) = prefs(context).edit().putBoolean(&quot;redmi_silent&quot;, quiet).apply()"
+        errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/InCall.kt"
+            line="195"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit().putString(&quot;host&quot;, relay.host).putInt(&quot;port&quot;, relay.port).putString(&quot;lan&quot;, JSONArray(relay.lan).toString()).putString(&quot;ver&quot;, relay.version)"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/relay/KeystoreRelayStore.kt"
+            line="46"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit().clear().apply()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/relay/KeystoreRelayStore.kt"
+            line="51"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="    fun accept(context: Context) = context.getSharedPreferences(&quot;legal&quot;, Context.MODE_PRIVATE).edit().putInt(&quot;accepted&quot;, VERSION).apply()"
+        errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/Legal.kt"
+            line="30"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit().putInt(&quot;connect_port&quot;, TCP_PORT).apply()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/adb/LocalAdb.kt"
+            line="142"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="                open(port)?.also { prefs.edit().putInt(&quot;connect_port&quot;, port).apply() }"
+        errorLine2="                                   ~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/adb/LocalAdb.kt"
+            line="171"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            context.getSharedPreferences(&quot;adb&quot;, Context.MODE_PRIVATE).edit().putBoolean(&quot;tcp&quot;, tcp).remove(&quot;connect_port&quot;).apply()"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/adb/LocalAdb.kt"
+            line="199"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="    fun setOn(context: Context, on: Boolean) = prefs(context).edit().putBoolean(KEY_ON, on).apply()"
+        errorLine2="                                               ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/mcp/McpAndroid.kt"
+            line="50"
+            column="48"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="    fun setLan(context: Context, lan: Boolean) = prefs(context).edit().putBoolean(KEY_LAN, lan).apply()"
+        errorLine2="                                                 ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/mcp/McpAndroid.kt"
+            line="53"
+            column="50"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="    fun setPlainLan(context: Context, plain: Boolean) = prefs(context).edit().putBoolean(KEY_PLAIN, plain).apply()"
+        errorLine2="                                                        ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/mcp/McpAndroid.kt"
+            line="56"
+            column="57"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="    fun setExplained(context: Context) = prefs(context).edit().putBoolean(KEY_SEEN, true).apply()"
+        errorLine2="                                         ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/mcp/McpAndroid.kt"
+            line="58"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            override fun save(json: String) { p.edit().putString(&quot;grants&quot;, json).apply() }"
+        errorLine2="                                              ~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/mcp/McpAndroid.kt"
+            line="67"
+            column="47"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            context.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear().commit()"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/pairing/OwnerReset.kt"
+            line="27"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        context.getSharedPreferences(&quot;screening&quot;, Context.MODE_PRIVATE).edit().remove(&quot;digest_key&quot;).commit()"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/pairing/OwnerReset.kt"
+            line="29"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            prefs.edit().putString(&quot;phone_id&quot;, claimant.phoneId).apply()"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/pairing/PairingViewModel.kt"
+            line="106"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="    fun set(context: Context, on: Boolean) = context.getSharedPreferences(&quot;gateway&quot;, Context.MODE_PRIVATE).edit().putBoolean(KEY, on).apply()"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/calls/PortMapping.kt"
+            line="17"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="                    prefs.edit().putString(&quot;freezes&quot;, org.json.JSONArray(all.takeLast(50).map { f -> JSONObject().put(&quot;at&quot;, f.atMs).put(&quot;ms&quot;, f.lastedMs) }).toString()).apply()"
+        errorLine2="                    ~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/selftest/SelfTestRunner.kt"
+            line="163"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        context.getSharedPreferences(&quot;selftest&quot;, Context.MODE_PRIVATE).edit().putString(&quot;last&quot;, r.json().toString()).apply()"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/selftest/SelfTestRunner.kt"
+            line="208"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse(&quot;package:${context.packageName}&quot;)))"
+        errorLine2="                                                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/SetupGuide.kt"
+            line="124"
+            column="89"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="                Button(L.t(&quot;已打开&quot;)) { autostartConfirmed = true; prefs.edit().putBoolean(&quot;autostart&quot;, true).apply() }"
+        errorLine2="                                                                ~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/SetupGuide.kt"
+            line="143"
+            column="65"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="                Button(L.t(&quot;已打开&quot;)) { autostartConfirmed = true; prefs.edit().putBoolean(&quot;autostart&quot;, true).apply() }"
+        errorLine2="                                                                ~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/SetupGuide.kt"
+            line="155"
+            column="65"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="    val details = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse(&quot;package:${context.packageName}&quot;))"
+        errorLine2="                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/SetupGuide.kt"
+            line="208"
+            column="72"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="        context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse(&quot;package:${context.packageName}&quot;)))"
+        errorLine2="                                                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/SetupGuide.kt"
+            line="220"
+            column="84"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="    override fun cancel(commandId: String) { cancels.edit().putLong(commandId, System.currentTimeMillis()).apply() }"
+        errorLine2="                                             ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/sms/SmsStore.kt"
+            line="118"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="    override fun put(device: String, seq: Long) { prefs.edit().putLong(device, seq).apply() }"
+        errorLine2="                                                  ~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/sms/SmsStore.kt"
+            line="129"
+            column="51"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="    override fun remove(device: String) { prefs.edit().remove(device).apply() }"
+        errorLine2="                                          ~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/sms/SmsStore.kt"
+            line="130"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="        persisted.getString(sms.id, null)?.let { runCatching { context.contentResolver.delete(Uri.parse(it), null, null) } }"
+        errorLine2="                                                                                              ~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/sms/SmsStore.kt"
+            line="183"
+            column="95"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        DefaultSms.writeSent(context, sms.peer, sms.body, sms.at, ok, sms.numberId?.let(subscriptionFor) ?: -1)?.let { persisted.edit().putString(sms.id, it.toString()).putBoolean(key, true).apply() }"
+        errorLine2="                                                                                                                       ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/sms/SmsStore.kt"
+            line="184"
+            column="120"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            ?: ByteArray(32).also(SecureRandom()::nextBytes).also { prefs.edit().putString(&quot;digest_key&quot;, android.util.Base64.encodeToString(it, android.util.Base64.NO_WRAP)).apply() }"
+        errorLine2="                                                                    ~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/screening/SystemScreener.kt"
+            line="37"
+            column="69"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="    override fun save(all: JSONObject) { prefs.edit().putString(&quot;bindings&quot;, all.toString()).apply() }"
+        errorLine2="                                         ~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/numbers/SystemSims.kt"
+            line="77"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="    fun setAuto(context: Context, on: Boolean) = prefs(context).edit().putBoolean(&quot;auto&quot;, on).apply()"
+        errorLine2="                                                 ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/cloudsim/gateway/update/Updater.kt"
+            line="52"
+            column="50"/>
+    </issue>
+
+</issues>

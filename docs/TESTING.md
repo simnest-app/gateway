@@ -16,7 +16,7 @@
 ## 准备
 
 - 电脑上有 `adb`（Android SDK 的 platform-tools）和 Python 3。
-- 手机：Android 10 及以上，arm64，插着能打电话的 SIM 卡，连着 Wi-Fi，开了开发者选项里的“USB 调试”，用数据线连电脑，并在手机上点过“允许 USB 调试”。
+- 手机：Android 12 及以上，arm64（Android 10、11 装得上，但见 README 的“现状”：没验证过，预计通话会出错），插着能打电话的 SIM 卡，连着 Wi-Fi，开了开发者选项里的“USB 调试”，用数据线连电脑，并在手机上点过“允许 USB 调试”。
 - 手机的主人在旁边。安装确认、权限弹窗、厂商的各种确认都要他来点。
 
 确认连上了，记下序列号，后面所有命令都带上它：
@@ -32,10 +32,10 @@ adb devices
 只在你改了代码时需要。按 [README.md](../README.md) 的“编译”一节，然后：
 
 ```bash
-./gradlew :gateway:testDebugUnitTest :gateway:assembleDebug
+./gradlew :gateway:testDebugUnitTest :gateway:lintDebug :gateway:assembleDebug
 ```
 
-全部通过才往下走。
+全部通过才往下走。`lintDebug` 会拦住新出现的问题，其中最要紧的是 `NewApi`：调用了比手机系统更新的接口，编译和单元测试都发现不了，只在老系统的手机上出错（“检查更新”就这样在 Android 12 上坏过）。已有的问题记在 `gateway/lint-baseline.xml` 里，不要为了通过而往里加新的；确实要用新接口，就用 `Build.VERSION.SDK_INT` 判断后再调用。
 
 ## L1：这款手机能不能运行网关
 

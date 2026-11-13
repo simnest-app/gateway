@@ -27,6 +27,10 @@
 
 ## 症状对到位置
 
+### 手机是 Android 10 或 11
+
+装得上，但没验证过，预计不能正常通话。代码里用了更新的系统接口而没有按版本判断，清单在 `gateway/lint-baseline.xml` 里标着 `NewApi` 的那些：默认电话应用读通话状态（`calls/InCall.kt`，Android 12 的接口）、音频服务建立 shell 身份（`BridgeMain.java`，Android 12）、读卡槽和订阅变化（`numbers/SystemSims.kt`、`calls/GatewayService.kt`，Android 11）。适配这两个版本，就是给这些地方各补一条老系统上的走法，并在一台 Android 10 或 11 的手机上按 TESTING 验证。另外 Android 10 没有无线调试，只能走调试端口。
+
 ### 手机上没有“无线调试”
 
 Android 10，或者厂商把它去掉了。走调试端口这条路：电脑上 `adb -s $S tcpip 5555`，引导里选“没有‘无线调试’？”。
@@ -99,7 +103,9 @@ Android 10，或者厂商把它去掉了。走调试端口这条路：电脑上 
 
 官方服务的地址和证书指纹不在仓库里，由编译的人放在本机。没有它也能编译，装上后界面都在，但不能配对，也就做不了 L2。
 
-配置文件是 `~/.cloudsim/service/m1.properties`，四个键：`address`（主机名和端口）、`cert_sha256`（服务证书的 SHA-256，十六进制）、`service_id`、`moved_to`（可空）。这个文件目前要向维护者要：在 Issue 里说明你要适配的机型。
+配置文件是 `~/.cloudsim/service/m1.properties`，四个键：`address`（主机名和端口）、`cert_sha256`（服务证书的 SHA-256，十六进制）、`service_id`、`moved_to`（可空）。网关只能连 SimNest 的核心服务：配对、来电通知、信令都经它，而它和 iPhone 应用都不开源，不能换成自己搭的一套。这个配置文件不对外提供；iPhone 应用目前也只在内部邀请测试。所以带服务配置的包、以及 L2 的测试，现在只有维护者和受邀的测试者能做。
+
+没有它你仍然可以：用官方安装包做 L1；改代码后编不带服务配置的包，验证“音频服务起得来、送话通道打得开”这类不需要配对的部分（TESTING 的 L1 第 2 步）；把证据和改动提交上来，由有条件的人接着做 L2。
 
 自己编译的包和官方包签名不同：
 

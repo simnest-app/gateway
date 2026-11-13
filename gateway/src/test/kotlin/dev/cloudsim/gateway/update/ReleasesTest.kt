@@ -59,6 +59,9 @@ class ReleasesTest {
         assertNull(Releases.newest(emptyList(), 1))
         assertEquals(hub, Releases.newest(listOf(older, gitee, hub), 104))
         assertEquals(gitee, Releases.newest(listOf(older, gitee), 104))
+        // The same version on both: the site that answered sooner.
+        assertEquals(gitee.copy(askedMs = 300), Releases.newest(listOf(hub.copy(askedMs = 2900), gitee.copy(askedMs = 300)), 104))
+        assertEquals(hub.copy(askedMs = 300), Releases.newest(listOf(hub.copy(askedMs = 300), gitee.copy(askedMs = 2900)), 104))
         assertEquals(Release("gitee", "0.44.0", 106, "u", 1, ""), Releases.newest(listOf(hub, Release("gitee", "0.44.0", 106, "u", 1, "")), 104))
     }
 

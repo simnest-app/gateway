@@ -474,6 +474,9 @@ object I18nTables {
         "。请到“应用启动管理”里找到网关，关掉“自动管理”，把“允许自启动”“允许关联启动”“允许后台活动”都打开" to ". In “App launch”, find the gateway, turn off “Manage automatically” and turn on “Auto-launch”, “Secondary launch” and “Run in background”",
         "。请在系统的电池和后台设置里允许网关自启动和后台运行" to ". Allow the gateway to start by itself and run in the background in the system's battery and background settings",
         "✗ 系统在过去 24 小时冻结过网关 %1\$s 次，冻结时来电转不出去。详见自检" to "✗ The system froze the gateway %1\$s times in the last 24 hours; calls are not passed on while frozen. See Self-Test",
+        "现在连不上 GitHub 和 Gitee，查不了有没有新版本。过一会儿再试" to "GitHub and Gitee cannot be reached now, so there is no telling whether a new version is out. Try again in a while",
+        "检查更新时出了问题，没查成。请发一份诊断日志给开发者" to "Something went wrong while checking for updates. Please send a diagnostics log to the developers",
+        "下载没成功，GitHub 和 Gitee 都试过了。过一会儿再试" to "The download failed from both GitHub and Gitee. Try again in a while",
     )
 
     val zhHant: Map<String, String> = mapOf(
@@ -948,5 +951,8 @@ object I18nTables {
         "。请到“应用启动管理”里找到网关，关掉“自动管理”，把“允许自启动”“允许关联启动”“允许后台活动”都打开" to "。請到「應用程式啟動管理」裡找到閘道，關掉「自動管理」，把「允許自動啟動」「允許關聯啟動」「允許背景活動」都開啟",
         "。请在系统的电池和后台设置里允许网关自启动和后台运行" to "。請在系統的電池和背景設定裡允許閘道自動啟動和背景執行",
         "✗ 系统在过去 24 小时冻结过网关 %1\$s 次，冻结时来电转不出去。详见自检" to "✗ 系統在過去 24 小時凍結過閘道 %1\$s 次，凍結時來電轉不出去。詳見自檢",
+        "现在连不上 GitHub 和 Gitee，查不了有没有新版本。过一会儿再试" to "現在連不上 GitHub 和 Gitee，查不了有沒有新版本。過一會兒再試",
+        "检查更新时出了问题，没查成。请发一份诊断日志给开发者" to "檢查更新時出了問題，沒查成。請傳一份診斷日誌給開發者",
+        "下载没成功，GitHub 和 Gitee 都试过了。过一会儿再试" to "下載沒成功，GitHub 和 Gitee 都試過了。過一會兒再試",
     )
 }

@@ -38,8 +38,8 @@ android {
         applicationId = "app.simnest.gateway"
         minSdk = 29
         targetSdk = 36
-        versionCode = 106
-        versionName = "0.43.1"
+        versionCode = 107
+        versionName = "0.43.2"
         // The Redmi gateway is arm64; WebRTC's native library is large, so ship that one ABI only.
         ndk { abiFilters += "arm64-v8a" }
         buildConfigField("String", "SERVICE_ADDRESS", quoted("address"))
@@ -83,6 +83,14 @@ android {
         jniLibs { useLegacyPackaging = true }
         // The three Bouncy Castle jars Kadb uses carry the same licence file.
         resources { pickFirsts += setOf("META-INF/LICENSE.md", "META-INF/NOTICE.md") }
+    }
+
+    lint {
+        // What was there on 2026-11-13 is listed in the baseline; anything new fails the build. Above all "NewApi":
+        // a call to something newer than the oldest Android this is installed on only fails on such a phone
+        // (the update check did, on Android 12).
+        baseline = file("lint-baseline.xml")
+        abortOnError = true
     }
 
     buildFeatures {

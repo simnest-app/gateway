@@ -18,7 +18,7 @@ The SimNest gateway runs on an Android phone that holds your SIM card and passes
 ## 现状
 
 - 开发和验收用的机型：Redmi（Android 13，MIUI）。华为 Mate 40 Pro+（HarmonyOS）基本可用。其他机型没有验证过。
-- 需要 Android 10 及以上，arm64。
+- 需要 Android 12 及以上，arm64。安装包在 Android 10、11 上也装得上，但代码里有十几处用了 Android 11、12 才有的系统接口（通话状态、音频服务的身份、读卡），在那两个版本上没验证过，预计通话相关的功能会出错。适配它们是一项单独的工作。
 - 网关要配合 SimNest 的 iPhone 应用和核心服务使用。自己编译的安装包里没有核心服务的地址，装上后不能配对；官方安装包见本仓库的 Releases。
 - 界面有简体中文、繁体中文和英文。
 

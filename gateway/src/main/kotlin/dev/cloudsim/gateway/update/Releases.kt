@@ -19,6 +19,8 @@ data class Release(
     /** In bytes, when the site says; 0 when it does not. */
     val size: Long,
     val notes: String,
+    /** How long the site took to answer when asked; the quicker one is downloaded from. */
+    val askedMs: Long = 0,
 )
 
 object Releases {
@@ -50,9 +52,12 @@ object Releases {
         return null
     }
 
-    /** The one to offer: the highest version among what the sites have, when it is above the installed one. */
+    /**
+     * The one to offer: the highest version among what the sites have, when it is above the installed one. Both having
+     * it, the site that answered sooner (GitHub is slow from some countries, Gitee from others), GitHub when equal.
+     */
     fun newest(found: List<Release>, installedCode: Int): Release? =
-        found.filter { it.versionCode > installedCode }.maxWithOrNull(compareBy<Release> { it.versionCode }.thenBy { if (it.source == "github") 1 else 0 })
+        found.filter { it.versionCode > installedCode }.maxWithOrNull(compareBy<Release> { it.versionCode }.thenBy { -it.askedMs }.thenBy { if (it.source == "github") 1 else 0 })
 
     /** Only over HTTPS and only from the two sites and where they keep their files; also asked of every redirect. */
     fun allowed(url: String): Boolean {
