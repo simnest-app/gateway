@@ -88,6 +88,9 @@ fun SelfTestScreen() {
         }) { Text(L.t("打开电池优化设置")) }
         Text(L.t("在列表里找到“SimNest 网关”，选“不限制”或“不优化”。"), style = MaterialTheme.typography.bodySmall)
     }
+    if (dev.cloudsim.gateway.selftest.Freezes.huawei && checks.any { it.id == "keep" && it.level == Level.FAIL } && Freezes.facts().first > 0) {
+        OutlinedButton(onClick = { runCatching { dev.cloudsim.gateway.openHuaweiStartup(context) } }) { Text(L.t("打开应用启动管理")) }
+    }
     if (!busy) at?.let {
         Text(L.t("上次自检：%1\$s", SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(it))), style = MaterialTheme.typography.bodySmall)
     }

@@ -55,7 +55,13 @@ data class DirectFacts(val wifiV6: Boolean, val mapping: String, val cellular: S
 
 data class LineFacts(val slot: Int, val state: String, val signal: Int?)
 
-data class KeepFacts(val batteryExempt: Boolean, val powerSave: Boolean, val broken: Int)
+data class KeepFacts(
+    val batteryExempt: Boolean, val powerSave: Boolean, val broken: Int,
+    /** Times the system stopped this app's process in the last 24 hours, the last one's age and length; see [FreezeWatch]. */
+    val freezes: Int = 0, val lastFreezeAgoMs: Long? = null, val lastFreezeMs: Long = 0,
+    /** A Huawei or Honor phone: its own list of apps allowed in the background is where this is set. */
+    val huawei: Boolean = false,
+)
 
 data class DeviceFacts(val battery: Int?, val charging: Boolean, val freeMb: Long)
 
@@ -190,10 +196,16 @@ object Judge {
     fun keep(f: KeepFacts): Check {
         val title = L.t("后台保活和权限")
         val notes = mutableListOf<String>()
+        if (f.freezes > 0) {
+            val ago = (f.lastFreezeAgoMs ?: 0) / 60_000
+            notes += L.t("系统在过去 24 小时冻结过网关 %1\$s 次（最近一次 %2\$s 分钟前，停了 %3\$s 秒）。冻结期间来电和短信转不出去", f.freezes, ago, f.lastFreezeMs / 1000) +
+                if (f.huawei) L.t("。请到“应用启动管理”里找到网关，关掉“自动管理”，把“允许自启动”“允许关联启动”“允许后台活动”都打开")
+                else L.t("。请在系统的电池和后台设置里允许网关自启动和后台运行")
+        }
         if (f.broken > 0) notes += L.t("%1\$s 项功能用不了，见“权限与功能”", f.broken)
         if (!f.batteryExempt) notes += L.t("系统可能为省电停掉网关：把网关的电池优化设为“不限制”")
         if (f.powerSave) notes += L.t("开着省电模式，网关可能被限速或断网")
-        return if (notes.isEmpty()) Check("keep", title, Level.OK, L.t("正常")) else Check("keep", title, if (f.broken > 0) Level.FAIL else Level.WARN, notes.joinToString("；"))
+        return if (notes.isEmpty()) Check("keep", title, Level.OK, L.t("正常")) else Check("keep", title, if (f.broken > 0 || f.freezes > 0) Level.FAIL else Level.WARN, notes.joinToString("；"))
     }
 
     fun device(f: DeviceFacts): Check {
@@ -281,5 +293,43 @@ data class RelayUrl(val host: String, val port: Int, val tcp: Boolean) {
             if (host.isEmpty() || port !in 1..65535) return null
             return RelayUrl(host, port, tcp)
         }
+    }
+}
+
+/**
+ * Notices when the system has stopped this app's process although the phone itself kept running: what Huawei's power
+ * manager does to an app a few seconds after the screen goes off (frozen and cut off the network, 2026-11-12 and
+ * 2026-11-13), and nothing in Android's own settings shows it. A tick is expected every few seconds; one that comes
+ * much later, by the clock that only counts while the processor runs, means this process was not let run in between.
+ * A phone asleep stops that clock too, so sleeping is not taken for freezing.
+ */
+class FreezeWatch(private val wall: () -> Long = System::currentTimeMillis, private val keep: Int = 200) {
+    /** One stop: when it ended (wall clock) and how long it lasted. */
+    data class Freeze(val atMs: Long, val lastedMs: Long)
+
+    private var lastUptime = -1L
+    private val list = ArrayDeque<Freeze>()
+
+    /** Called every [TICK_MS] with the processor's running time; true when this tick shows a stop. */
+    @Synchronized
+    fun tick(uptimeMs: Long): Boolean {
+        val gap = if (lastUptime < 0) 0 else uptimeMs - lastUptime
+        lastUptime = uptimeMs
+        if (gap < STOPPED_MS) return false
+        list.addLast(Freeze(wall(), gap))
+        while (list.size > keep) list.removeFirst()
+        return true
+    }
+
+    @Synchronized fun last24h(): List<Freeze> { val from = wall() - ServiceLink.DAY_MS; return list.filter { it.atMs >= from } }
+
+    @Synchronized fun restore(saved: List<Freeze>) { list.clear(); list.addAll(saved.takeLast(keep)) }
+    @Synchronized fun all(): List<Freeze> = list.toList()
+
+    companion object {
+        const val TICK_MS = 5_000L
+        /** Six ticks missed in a row: a pause in ordinary running does not last that long. */
+        const val STOPPED_MS = 30_000L
+        val shared = FreezeWatch()
     }
 }

@@ -276,6 +276,7 @@ class GatewayService : Service() {
         numbers = dev.cloudsim.gateway.numbers.NumberBook(client, dev.cloudsim.gateway.numbers.SystemSims(this) { Log.i(TAG, it) }, dev.cloudsim.gateway.numbers.PrefsBindings(this), sealer, owner) { Log.i(TAG, it) }
         liveNumbers = { numbers.current() }
         dev.cloudsim.gateway.update.Updater.schedule(this)
+        dev.cloudsim.gateway.selftest.Freezes.start(this)
         val radio = SystemRadio(this, { numbers.subscriptionFor(it) }, { numbers.numberIdFor(it) }) { id, part, ok -> smsWorker.execute { smsRelay.onPart(id, part, ok) } }
         ContextCompat.registerReceiver(this, radio.receiver, android.content.IntentFilter("$packageName.SMS_SENT"), ContextCompat.RECEIVER_NOT_EXPORTED)
         val smsScheduler = Scheduler { ms, task ->
@@ -358,6 +359,7 @@ class GatewayService : Service() {
     override fun onDestroy() {
         running = false
         liveNumbers = null
+        dev.cloudsim.gateway.selftest.Freezes.stop()
         Log.w(TAG, "gateway service stopping")
         unregister()
         unregisterSubscriptions()

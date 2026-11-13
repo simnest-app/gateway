@@ -69,6 +69,8 @@ private fun homeFacts(context: android.content.Context): HomeFacts {
         }
         (if (state == "in_service") "✓ " else if (state == "no_sim") "– " else "✗ ") + L.t("卡 %1\$s", n.slot + 1) + (n.carrier.takeIf { it.isNotEmpty() }?.let { " · $it" } ?: "") + "：" + text
     }
+    val (freezes, _, _) = dev.cloudsim.gateway.selftest.Freezes.facts()
+    val frozen = if (freezes > 0) L.t("✗ 系统在过去 24 小时冻结过网关 %1\$s 次，冻结时来电转不出去。详见自检", freezes) else ""
     val power = GatewayStatus.battery(context)?.let { (level, charging) -> L.t("电量 %1\$s%%", level) + if (charging) L.t("，在充电") else L.t("，没在充电") }.orEmpty()
     val c = CellularPath.current?.condition()
     val direct = when {
@@ -89,7 +91,7 @@ private fun homeFacts(context: android.content.Context): HomeFacts {
             else -> L.t("全部正常")
         }
     }
-    return HomeFacts(lines, power, Readiness.items(context).count { !it.ok }, direct, test, last?.worst == Level.FAIL)
+    return HomeFacts(listOfNotNull(frozen.takeIf { it.isNotEmpty() }) + lines, power, Readiness.items(context).count { !it.ok }, direct, test, last?.worst == Level.FAIL)
 }
 
 /** The first page of a paired gateway: on or off, each SIM, power, and one row for each of the other pages with its state in a line. */
@@ -178,7 +180,7 @@ internal fun SubPage(page: Page, model: PairingViewModel, back: () -> Unit) {
         Page.DIAGNOSTICS -> DiagnosticsSection()
         Page.ABOUT -> {
             Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleMedium)
-            Text(BuildInfo.summary())
+            Text(BuildInfo.summary() + " · " + BuildConfig.BUILD_COMMIT)
             dev.cloudsim.gateway.update.UpdateCard()
             LegalLinks()
             OpenSourceLicenses()

@@ -19,6 +19,13 @@ val serviceFile = File(System.getProperty("user.home"), ".cloudsim/service/$serv
 val service = Properties().apply { if (serviceFile.exists()) serviceFile.inputStream().use(::load) }
 fun quoted(key: String) = "\"" + service.getProperty(key, "") + "\""
 
+// Which source this build was made from, so that evidence taken from a phone (tools/evidence.py) can be matched to a
+// commit: the commit's short hash, with "+changes" when files differed from it; "unknown" outside a git checkout.
+fun git(vararg args: String): String = runCatching {
+    providers.exec { commandLine("git", *args); isIgnoreExitValue = true }.standardOutput.asText.get().trim()
+}.getOrDefault("")
+val buildCommit = git("rev-parse", "--short=12", "HEAD").ifEmpty { "unknown" }.let { if (it != "unknown" && git("status", "--porcelain", "--", ".").isNotEmpty()) "$it+changes" else it }
+
 android {
     namespace = "dev.cloudsim.gateway"
     // AndroidX 1.19 / Compose 1.12 need API 37 to compile against; runtime behaviour follows targetSdk.
@@ -31,14 +38,15 @@ android {
         applicationId = "app.simnest.gateway"
         minSdk = 29
         targetSdk = 36
-        versionCode = 105
-        versionName = "0.43.0"
+        versionCode = 106
+        versionName = "0.43.1"
         // The Redmi gateway is arm64; WebRTC's native library is large, so ship that one ABI only.
         ndk { abiFilters += "arm64-v8a" }
         buildConfigField("String", "SERVICE_ADDRESS", quoted("address"))
         buildConfigField("String", "SERVICE_CERT_SHA256", quoted("cert_sha256"))
         buildConfigField("String", "SERVICE_ID", quoted("service_id"))
         buildConfigField("String", "SERVICE_MOVED_TO", quoted("moved_to"))
+        buildConfigField("String", "BUILD_COMMIT", "\"$buildCommit\"")
         // Where new versions are published (owner/repository on each); empty for one not set up yet.
         buildConfigField("String", "UPDATE_GITHUB", "\"" + providers.gradleProperty("cloudsim.update.github").getOrElse("simnest-app/gateway") + "\"")
         buildConfigField("String", "UPDATE_GITEE", "\"" + providers.gradleProperty("cloudsim.update.gitee").getOrElse("simnest-app/gateway") + "\"")

@@ -89,7 +89,9 @@ class SelfTestRunner(private val context: Context) {
         }
         step(L.t("后台保活和权限")) {
             val power = context.getSystemService(PowerManager::class.java)
-            listOf(Judge.keep(KeepFacts(power.isIgnoringBatteryOptimizations(context.packageName), power.isPowerSaveMode, Readiness.items(context).count { !it.ok })))
+            val (freezes, ago, lasted) = Freezes.facts()
+            listOf(Judge.keep(KeepFacts(power.isIgnoringBatteryOptimizations(context.packageName), power.isPowerSaveMode, Readiness.items(context).count { !it.ok },
+                freezes, ago, lasted, Freezes.huawei)))
         }
         step(L.t("电量和空间")) {
             val battery = GatewayStatus.battery(context)
@@ -139,6 +141,44 @@ class SelfTestRunner(private val context: Context) {
         val name = entry.optString("id").takeIf { it.isNotEmpty() && it.length <= RelayMeasurer.MAX * 2 } ?: L.t("中继 %1\$s", index)
         return RelayFacts(name, rtt, allocate, tcpMs)
     }
+}
+
+/** Keeps [FreezeWatch] ticking while the gateway runs, and what it found across restarts. */
+object Freezes {
+    private var timer: java.util.concurrent.ScheduledExecutorService? = null
+
+    @Synchronized
+    fun start(context: Context) {
+        if (timer != null) return
+        val prefs = context.applicationContext.getSharedPreferences("selftest", Context.MODE_PRIVATE)
+        runCatching {
+            val a = org.json.JSONArray(prefs.getString("freezes", "[]"))
+            FreezeWatch.shared.restore((0 until a.length()).map { a.getJSONObject(it).let { o -> FreezeWatch.Freeze(o.getLong("at"), o.getLong("ms")) } })
+        }
+        timer = java.util.concurrent.Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "freeze-watch").apply { isDaemon = true } }.also {
+            it.scheduleWithFixedDelay({
+                if (FreezeWatch.shared.tick(android.os.SystemClock.uptimeMillis())) {
+                    val all = FreezeWatch.shared.all()
+                    android.util.Log.w("CloudSimGateway", "the system had stopped this app for ${all.last().lastedMs / 1000} s")
+                    prefs.edit().putString("freezes", org.json.JSONArray(all.takeLast(50).map { f -> JSONObject().put("at", f.atMs).put("ms", f.lastedMs) }).toString()).apply()
+                }
+            }, FreezeWatch.TICK_MS, FreezeWatch.TICK_MS, java.util.concurrent.TimeUnit.MILLISECONDS)
+        }
+    }
+
+    @Synchronized
+    fun stop() {
+        timer?.shutdownNow()
+        timer = null
+    }
+
+    fun facts(): Triple<Int, Long?, Long> {
+        val recent = FreezeWatch.shared.last24h()
+        val last = recent.lastOrNull()
+        return Triple(recent.size, last?.let { System.currentTimeMillis() - it.atMs }, last?.lastedMs ?: 0)
+    }
+
+    val huawei: Boolean get() = android.os.Build.MANUFACTURER.lowercase() in setOf("huawei", "honor")
 }
 
 /** The last finished run, kept across restarts. */

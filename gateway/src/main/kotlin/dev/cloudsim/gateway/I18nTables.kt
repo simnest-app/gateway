@@ -470,6 +470,10 @@ object I18nTables {
         "签名和现在的不一样" to "signed with a different key",
         "开源许可" to "Open Source Licences",
         "网关的源码以 GPL-3.0 公开：github.com/simnest-app/gateway" to "The gateway's source is public under GPL-3.0: github.com/simnest-app/gateway",
+        "系统在过去 24 小时冻结过网关 %1\$s 次（最近一次 %2\$s 分钟前，停了 %3\$s 秒）。冻结期间来电和短信转不出去" to "The system froze the gateway %1\$s times in the last 24 hours (the last one %2\$s minutes ago, for %3\$s seconds). While frozen, calls and messages are not passed on",
+        "。请到“应用启动管理”里找到网关，关掉“自动管理”，把“允许自启动”“允许关联启动”“允许后台活动”都打开" to ". In “App launch”, find the gateway, turn off “Manage automatically” and turn on “Auto-launch”, “Secondary launch” and “Run in background”",
+        "。请在系统的电池和后台设置里允许网关自启动和后台运行" to ". Allow the gateway to start by itself and run in the background in the system's battery and background settings",
+        "✗ 系统在过去 24 小时冻结过网关 %1\$s 次，冻结时来电转不出去。详见自检" to "✗ The system froze the gateway %1\$s times in the last 24 hours; calls are not passed on while frozen. See Self-Test",
     )
 
     val zhHant: Map<String, String> = mapOf(
@@ -940,5 +944,9 @@ object I18nTables {
         "签名和现在的不一样" to "簽名和現在的不一樣",
         "开源许可" to "開源許可",
         "网关的源码以 GPL-3.0 公开：github.com/simnest-app/gateway" to "閘道的原始碼以 GPL-3.0 公開：github.com/simnest-app/gateway",
+        "系统在过去 24 小时冻结过网关 %1\$s 次（最近一次 %2\$s 分钟前，停了 %3\$s 秒）。冻结期间来电和短信转不出去" to "系統在過去 24 小時凍結過閘道 %1\$s 次（最近一次 %2\$s 分鐘前，停了 %3\$s 秒）。凍結期間來電和簡訊轉不出去",
+        "。请到“应用启动管理”里找到网关，关掉“自动管理”，把“允许自启动”“允许关联启动”“允许后台活动”都打开" to "。請到「應用程式啟動管理」裡找到閘道，關掉「自動管理」，把「允許自動啟動」「允許關聯啟動」「允許背景活動」都開啟",
+        "。请在系统的电池和后台设置里允许网关自启动和后台运行" to "。請在系統的電池和背景設定裡允許閘道自動啟動和背景執行",
+        "✗ 系统在过去 24 小时冻结过网关 %1\$s 次，冻结时来电转不出去。详见自检" to "✗ 系統在過去 24 小時凍結過閘道 %1\$s 次，凍結時來電轉不出去。詳見自檢",
     )
 }

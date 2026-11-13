@@ -18,5 +18,6 @@ UID_=$($ADB shell pm list packages -U $PKG | sed -n "s/^package:$PKG uid://p" | 
 [ -n "$APK" ] && [ -n "$UID_" ] || { echo "gateway app not installed" >&2; exit 1; }
 $ADB shell "pkill -f dev.cloudsim.gateway.shell.[B]ridgeMain; true"  # the bracket keeps pkill from matching this shell itself
 $ADB shell "CLASSPATH=$APK nohup app_process /system/bin dev.cloudsim.gateway.shell.BridgeMain $UID_ $LIB /sdcard/Android/data/$PKG/files/bridge-token > /data/local/tmp/cloudsim-bridge.log 2>&1 &"
-sleep 2
+# The uplink is tried for 3 s after the start ("tx warmed" or "tx warm failed"): wait for that line.
+sleep 5
 $ADB shell cat /data/local/tmp/cloudsim-bridge.log

@@ -123,6 +123,34 @@ class SelfTestTest {
     }
 
     @Test
+    fun aProcessStoppedWhileThePhoneRanIsCountedAndSleepIsNot() {
+        var wall = 1_000_000_000L
+        val w = FreezeWatch({ wall })
+        // Ticking as it should; the first tick has nothing before it.
+        for (up in listOf(0L, 5_000, 10_000, 15_200)) assertEquals(false, w.tick(up))
+        // 70 s of the processor's own time went by without a tick: stopped.
+        wall += 70_000
+        assertTrue(w.tick(85_200))
+        assertEquals(listOf(FreezeWatch.Freeze(wall, 70_000)), w.last24h())
+        // The phone slept for an hour: the wall clock moved, the processor's did not.
+        wall += 3_600_000
+        assertEquals(false, w.tick(90_200))
+        assertEquals(1, w.last24h().size)
+        wall += ServiceLink.DAY_MS
+        assertEquals(0, w.last24h().size)
+        assertEquals(1, w.all().size)
+    }
+
+    @Test
+    fun beingFrozenFailsTheKeepAliveItemAndSaysWhereToSetIt() {
+        val frozen = KeepFacts(true, false, 0, freezes = 3, lastFreezeAgoMs = 120_000, lastFreezeMs = 71_000, huawei = true)
+        val c = Judge.keep(frozen)
+        assertEquals(Level.FAIL, c.level)
+        assertTrue(c.detail.contains("冻结过网关 3 次") && c.detail.contains("2 分钟前") && c.detail.contains("71 秒") && c.detail.contains("应用启动管理"))
+        assertTrue(!Judge.keep(frozen.copy(huawei = false)).detail.contains("应用启动管理"))
+    }
+
+    @Test
     fun relayAddressesAreTakenApart() {
         assertEquals(RelayUrl("relay.example", 3478, false), RelayUrl.parse("turn:relay.example:3478?transport=udp"))
         assertEquals(RelayUrl("relay.example", 443, true), RelayUrl.parse("turn:relay.example:443?transport=tcp"))

@@ -210,7 +210,7 @@ private fun openBatterySettings(context: Context, miui: Boolean) {
 }
 
 /** Huawei's and Honor's list of apps allowed to start themselves; the app's details page if neither opens. */
-private fun openHuaweiStartup(context: Context) {
+internal fun openHuaweiStartup(context: Context) {
     val pages = listOf(
         ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity"),
         ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.appcontrol.activity.StartupAppControlActivity"),

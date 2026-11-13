@@ -108,7 +108,9 @@ public final class BridgeMain {
             .setNativeLibraryLoader(name -> true).createInitializationOptions());
         warmTx();
         java.net.ServerSocket server = new java.net.ServerSocket(PORT, 1, java.net.InetAddress.getLoopbackAddress());
-        System.out.println("bridge ready port=" + PORT + " app_uid=" + appUid);
+        // The version and the commit it was built from: evidence taken from the log names the code that ran.
+        System.out.println("bridge ready port=" + PORT + " app_uid=" + appUid + " version=" + dev.cloudsim.gateway.BuildConfig.VERSION_NAME
+            + " build=" + dev.cloudsim.gateway.BuildConfig.BUILD_COMMIT);
         while (true) {
             java.net.Socket peer = server.accept();
             int uid = socketUid(peer.getPort());
