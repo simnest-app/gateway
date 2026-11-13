@@ -66,6 +66,20 @@ class ReleasesTest {
     }
 
     @Test
+    fun aDownloadCrawlingForAWholeWindowIsTooSlow() {
+        val w = SpeedWatch(minBytesPerSecond = 50 * 1024, windowMs = 30_000)
+        assertFalse(w.tooSlow(0, 0))
+        // Fast: 2 MB a second.
+        assertFalse(w.tooSlow(15_000, 30L shl 20))
+        assertFalse(w.tooSlow(30_000, 60L shl 20))
+        // Then 1 MB in the next 30 s, about 34 KB a second: too slow, once the window is over and not before.
+        assertFalse(w.tooSlow(45_000, (60L shl 20) + (512 shl 10)))
+        assertTrue(w.tooSlow(60_000, 61L shl 20))
+        // Exactly the limit is enough.
+        assertFalse(w.tooSlow(90_000, (61L shl 20) + 50 * 1024 * 30))
+    }
+
+    @Test
     fun theAddressToAskIsBuiltOnlyFromAPlainRepositoryName() {
         assertEquals("https://api.github.com/repos/simnest-app/gateway/releases/latest", Releases.latestUrl("github", "simnest-app/gateway"))
         assertEquals("https://gitee.com/api/v5/repos/simnest/gateway/releases/latest", Releases.latestUrl("gitee", "simnest/gateway"))

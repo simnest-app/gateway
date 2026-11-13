@@ -55,7 +55,7 @@ fun UpdateCard() {
                     if (s.release.notes.isNotBlank()) Text(s.release.notes, style = MaterialTheme.typography.bodySmall)
                 }
                 is Updater.State.Downloading -> {
-                    Text(L.t("正在下载 %1\$s… %2\$s%%", s.release.versionName, s.percent), style = MaterialTheme.typography.bodyMedium)
+                    Text(L.t("正在从 %1\$s 下载 %2\$s… %3\$s%%", if (s.release.source == "gitee") "Gitee" else "GitHub", s.release.versionName, s.percent), style = MaterialTheme.typography.bodyMedium)
                     LinearProgressIndicator(progress = { s.percent / 100f }, modifier = Modifier.fillMaxWidth())
                 }
                 is Updater.State.Installing -> Text(L.t("正在安装 %1\$s，网关会自己重新启动…", s.release.versionName), style = MaterialTheme.typography.bodyMedium)

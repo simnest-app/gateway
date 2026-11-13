@@ -113,8 +113,10 @@ object Updater {
             // The site it was offered from first, then the same version from the other one.
             val places = listOf(release) + offers.filter { it.versionCode == release.versionCode && it.source != release.source }
             var file: File? = null
-            for (place in places) {
-                file = try { download(context, place) } catch (t: Throwable) { Log.w(TAG, "download from ${place.source} failed: $t"); null }
+            for ((i, place) in places.withIndex()) {
+                // Too slow is a reason to leave a site only while there is another one to go to.
+                val other = i < places.size - 1
+                file = try { download(context, place, giveUpWhenSlow = other) } catch (t: Throwable) { Log.w(TAG, "download from ${place.source} failed: $t"); null }
                 if (file != null) break
             }
             if (file == null) return fail(L.t("下载没成功，GitHub 和 Gitee 都试过了。过一会儿再试"), release)
@@ -161,7 +163,9 @@ object Updater {
         p.signingInfo?.apkContentsSigners.orEmpty().map { java.util.Base64.getEncoder().encodeToString(it.toByteArray()) }.toSet()
 
     /** Into this app's own external files, where the shell can read it; older downloads are removed first. */
-    private fun download(context: Context, release: Release): File {
+    private class TooSlow(source: String) : java.io.IOException("$source is too slow")
+
+    private fun download(context: Context, release: Release, giveUpWhenSlow: Boolean = false): File {
         val dir = File(context.getExternalFilesDir(null), "update").apply { mkdirs() }
         dir.listFiles()?.forEach { it.delete() }
         val file = File(dir, "simnest-gateway-${release.versionCode}.apk")
@@ -171,6 +175,7 @@ object Updater {
             val total = c.contentLengthLong.takeIf { it > 0 } ?: release.size
             if (total > Releases.MAX_BYTES) error("too large")
             var done = 0L
+            val speed = SpeedWatch()
             c.inputStream.use { input ->
                 file.outputStream().use { out ->
                     val buffer = ByteArray(64 * 1024)
@@ -181,6 +186,7 @@ object Updater {
                         if (done > Releases.MAX_BYTES) error("too large")
                         out.write(buffer, 0, n)
                         if (total > 0) state.value = State.Downloading(release, (done * 100 / total).toInt().coerceIn(0, 100))
+                        if (giveUpWhenSlow && speed.tooSlow(android.os.SystemClock.elapsedRealtime(), done)) throw TooSlow(release.source)
                     }
                 }
             }

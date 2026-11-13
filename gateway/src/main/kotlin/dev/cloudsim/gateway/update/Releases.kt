@@ -68,3 +68,23 @@ object Releases {
 
     private val HOSTS = listOf("github.com", "githubusercontent.com", "gitee.com")
 }
+
+/**
+ * Says when a download is too slow to wait for: less than [minBytesPerSecond] over a whole [windowMs]. A site can be
+ * reachable and still crawl (GitHub from a Redmi at home, 2026-11-13: about 1 MB a minute, broken off after half an
+ * hour, while Gitee gave 2 MB a second on the same phone); then the other site is tried instead.
+ */
+class SpeedWatch(private val minBytesPerSecond: Long = 50 * 1024, private val windowMs: Long = 30_000) {
+    private var windowStart = -1L
+    private var bytesAtStart = 0L
+
+    /** At [nowMs] with [total] bytes received so far: true when the window just ended below the speed. */
+    fun tooSlow(nowMs: Long, total: Long): Boolean {
+        if (windowStart < 0) { windowStart = nowMs; bytesAtStart = total; return false }
+        if (nowMs - windowStart < windowMs) return false
+        val slow = (total - bytesAtStart) * 1000 < minBytesPerSecond * (nowMs - windowStart)
+        windowStart = nowMs
+        bytesAtStart = total
+        return slow
+    }
+}

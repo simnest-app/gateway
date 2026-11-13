@@ -477,6 +477,7 @@ object I18nTables {
         "现在连不上 GitHub 和 Gitee，查不了有没有新版本。过一会儿再试" to "GitHub and Gitee cannot be reached now, so there is no telling whether a new version is out. Try again in a while",
         "检查更新时出了问题，没查成。请发一份诊断日志给开发者" to "Something went wrong while checking for updates. Please send a diagnostics log to the developers",
         "下载没成功，GitHub 和 Gitee 都试过了。过一会儿再试" to "The download failed from both GitHub and Gitee. Try again in a while",
+        "正在从 %1\$s 下载 %2\$s… %3\$s%%" to "Downloading %2\$s from %1\$s… %3\$s%%",
     )
 
     val zhHant: Map<String, String> = mapOf(
@@ -954,5 +955,6 @@ object I18nTables {
         "现在连不上 GitHub 和 Gitee，查不了有没有新版本。过一会儿再试" to "現在連不上 GitHub 和 Gitee，查不了有沒有新版本。過一會兒再試",
         "检查更新时出了问题，没查成。请发一份诊断日志给开发者" to "檢查更新時出了問題，沒查成。請傳一份診斷日誌給開發者",
         "下载没成功，GitHub 和 Gitee 都试过了。过一会儿再试" to "下載沒成功，GitHub 和 Gitee 都試過了。過一會兒再試",
+        "正在从 %1\$s 下载 %2\$s… %3\$s%%" to "正在從 %1\$s 下載 %2\$s… %3\$s%%",
     )
 }
