@@ -3,21 +3,21 @@ package dev.cloudsim.gateway.screening.voice
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
 import java.io.File
-import java.io.InputStream
-import java.net.HttpURLConnection
-import java.net.URL
 import java.security.MessageDigest
 
 /**
  * The voice-cloning models on the gateway (SCREENING_ASSISTANT.md 12.2): ZipVoice distill int8, the 24 kHz vocos
- * vocoder and the GTCRN speech denoiser (for the owner's recording, 12.5) from sherpa-onnx's GitHub releases, each checked against its SHA-256 before use. A copy put in the app's
+ * vocoder and the GTCRN speech denoiser (for the owner's recording, 12.5) from sherpa-onnx's GitHub releases (or the
+ * other places ModelSources lists), each checked against its SHA-256 before use. A copy put in the app's
  * external files under models/ (for a phone that cannot reach GitHub) is used instead of downloading, if it checks out.
  * Never shipped with the app: the user's gateway fetches them for itself.
  */
 class VoiceModels(
     private val dir: File,
     private val sideload: File?,
-    private val open: (String) -> InputStream = { url -> (URL(url).openConnection() as HttpURLConnection).apply { connectTimeout = 15_000; readTimeout = 60_000; instanceFollowRedirects = true }.inputStream },
+    private val open: (String, Long) -> ModelDownload = ::openModel,
+    /** Where each file may come from, in order (ModelSources). */
+    private val sources: (String) -> List<String> = { ModelSources.urls(it) },
     private val log: (String) -> Unit = {},
 ) {
     sealed interface State {
@@ -63,7 +63,7 @@ class VoiceModels(
     }
 
     private fun fetch(url: String, sha: String, size: Long, from: Int, to: Int, place: (File) -> Unit) =
-        fetchModel(dir, sideload, open, log, url, sha, size, { state = State.Downloading(from + ((to - from) * it / size).toInt().coerceIn(0, to - from)) }, place)
+        fetchModel(dir, sideload, open, log, sources(url), sha, size, { state = State.Downloading(from + ((to - from) * it / size).toInt().coerceIn(0, to - from)) }, place)
 
     private fun untar(archive: File, into: File) = untarModel(archive, into)
 
@@ -86,29 +86,59 @@ class VoiceModels(
     }
 }
 
-/** One model file from [url] (or a side-loaded copy under [sideload] that checks out), checked, then [place]d. */
-internal fun fetchModel(dir: File, sideload: File?, open: (String) -> InputStream, log: (String) -> Unit, url: String, sha: String, size: Long,
-                        progress: (Long) -> Unit, place: (File) -> Unit) {
-    val name = url.substringAfterLast('/')
+/**
+ * One model file from the first of [urls] that delivers it (or a side-loaded copy under [sideload] that checks out),
+ * checked, then [place]d. A place that fails, or crawls below 50 KB/s for 30 s while others are left, is left for
+ * the next; what came so far is kept and the next place is asked only for the rest, as every place has the same
+ * bytes (the SHA-256 at the end decides). A place that sent the wrong bytes has its part thrown away.
+ */
+internal fun fetchModel(dir: File, sideload: File?, open: (String, Long) -> ModelDownload, log: (String) -> Unit, urls: List<String>, sha: String,
+                        size: Long, progress: (Long) -> Unit, place: (File) -> Unit) {
+    val name = urls.first().substringAfterLast('/')
     val tmp = File(dir, "$name.download")
     val local = sideload?.let { File(it, name) }?.takeIf { it.isFile && modelSha256(it) == sha }
     if (local != null) {
         local.copyTo(tmp, overwrite = true)
         log("model $name taken from the side-loaded copy")
     } else {
-        open(url).use { input ->
-            tmp.outputStream().use { out ->
-                val buf = ByteArray(1 shl 16)
-                var got = 0L
-                while (true) {
-                    val n = input.read(buf)
-                    if (n < 0) break
-                    out.write(buf, 0, n)
-                    got += n
-                    progress(got)
+        var failure: Exception? = null
+        var got = false
+        for ((i, url) in urls.withIndex()) {
+            val label = ModelSources.label(url)
+            try {
+                var have = if (tmp.isFile) tmp.length() else 0L
+                if (have > size) { tmp.delete(); have = 0L }
+                if (have < size) {
+                    val d = open(url, have)
+                    val from = if (d.resumed) have else 0L
+                    val speed = dev.cloudsim.gateway.update.SpeedWatch()
+                    d.input.use { input ->
+                        java.io.FileOutputStream(tmp, from > 0).use { out ->
+                            val buf = ByteArray(1 shl 16)
+                            var total = from
+                            while (true) {
+                                val n = input.read(buf)
+                                if (n < 0) break
+                                out.write(buf, 0, n)
+                                total += n
+                                if (total > size) throw java.io.IOException("more than $size bytes")
+                                progress(total)
+                                if (i < urls.size - 1 && speed.tooSlow(System.nanoTime() / 1_000_000, total)) throw java.io.IOException("too slow")
+                            }
+                        }
+                    }
                 }
+                if (tmp.length() < size) throw java.io.IOException("ended at ${tmp.length()} of $size bytes")
+                if (modelSha256(tmp) != sha) { tmp.delete(); throw IllegalStateException("checksum mismatch") }
+                log("model $name from $label")
+                got = true
+                break
+            } catch (e: Exception) {
+                failure = e
+                log("model $name: $label ${e.javaClass.simpleName} ${e.message}")
             }
         }
+        if (!got) throw failure ?: IllegalStateException("no place to fetch $name from")
     }
     if (modelSha256(tmp) != sha) { tmp.delete(); throw IllegalStateException("checksum mismatch for $name") }
     place(tmp)

@@ -6,9 +6,9 @@ import java.io.File
 import java.security.MessageDigest
 import java.util.concurrent.Executors
 
-/** Speaks [text] in the voice of [ref] (with its words [refText]); 16 kHz mono out. */
+/** Speaks [text] in the voice of [ref] (with its words [refText]) and the owner's [style]; 16 kHz mono out. */
 fun interface Cloner {
-    fun speak(text: String, ref: FloatArray, refRate: Int, refText: String): ShortArray
+    fun speak(text: String, ref: FloatArray, refRate: Int, refText: String, style: VoiceProfile.Style): ShortArray
 }
 
 /**
@@ -23,8 +23,14 @@ class SherpaCloner(private val models: VoiceModels) : Cloner {
     /** The reference with the room's noise taken out, for the voice it was made from (by the samples' identity). */
     private var cleaned: Triple<FloatArray, FloatArray, Int>? = null
 
+    /** The guidance the loaded model was made with: it is part of the model's configuration, not of each line's. */
+    private var loadedGuidance = 0f
+
     @Synchronized
-    override fun speak(text: String, ref: FloatArray, refRate: Int, refText: String): ShortArray {
+    override fun speak(text: String, ref: FloatArray, refRate: Int, refText: String, style: VoiceProfile.Style): ShortArray {
+        // Another "like me" setting means loading the model again (a few seconds); the speed goes with each line.
+        if (tts != null && loadedGuidance != style.guidance) { tts?.release(); tts = null }
+        loadedGuidance = style.guidance
         val t = tts ?: com.k2fsa.sherpa.onnx.OfflineTts(null, com.k2fsa.sherpa.onnx.OfflineTtsConfig(
             model = com.k2fsa.sherpa.onnx.OfflineTtsModelConfig(
                 zipvoice = com.k2fsa.sherpa.onnx.OfflineTtsZipVoiceModelConfig(
@@ -34,6 +40,7 @@ class SherpaCloner(private val models: VoiceModels) : Cloner {
                     vocoder = models.vocoder.path,
                     dataDir = File(models.zipvoice, "espeak-ng-data").path,
                     lexicon = File(models.zipvoice, "lexicon.txt").path,
+                    guidanceScale = style.guidance,
                 ),
                 numThreads = 4,
             ),
@@ -41,7 +48,7 @@ class SherpaCloner(private val models: VoiceModels) : Cloner {
         val (clean, cleanRate) = clean(ref, refRate)
         // 8 steps rather than 4: the owner chose it on a comparison of the same lines (12.5), at about half again the time.
         val out = t.generateWithConfig(text, com.k2fsa.sherpa.onnx.GenerationConfig(
-            referenceAudio = clean, referenceSampleRate = cleanRate, referenceText = refText, numSteps = STEPS))
+            referenceAudio = clean, referenceSampleRate = cleanRate, referenceText = refText, numSteps = STEPS, speed = style.speed))
         return to16k(out.samples, out.sampleRate)
     }
 
@@ -85,8 +92,28 @@ class SherpaCloner(private val models: VoiceModels) : Cloner {
  * this phone.
  */
 class VoiceProfile(private val dir: File) {
-    data class Voice(val id: String, val text: String, val samples: FloatArray, val rate: Int)
+    /**
+     * How the owner's voice is spoken, chosen on the iPhone while listening (the user's 2026-11-13 request): [speed]
+     * 0.8–1.2 and [guidance], "like me", 1.0–2.0 (ZipVoice's guidance scale: higher keeps closer to the recording,
+     * too high and it wavers). The defaults are sherpa-onnx's own; a voice at the defaults keeps the id it had before.
+     */
+    data class Style(val speed: Float = 1f, val guidance: Float = 1f) {
+        val isDefault get() = speed == 1f && guidance == 1f
+        fun tag(): String = if (isDefault) "" else String.format(java.util.Locale.US, "\nstyle:%.2f,%.2f", speed, guidance)
+        fun json(): JSONObject = JSONObject().put("speed", speed.toDouble()).put("guidance", guidance.toDouble())
 
+        companion object {
+            /** From the iPhone's numbers, rounded to hundredths; null when out of range. */
+            fun of(speed: Double, guidance: Double): Style? {
+                if (speed.isNaN() || guidance.isNaN() || speed !in 0.8..1.2 || guidance !in 1.0..2.0) return null
+                return Style(Math.round(speed * 100) / 100f, Math.round(guidance * 100) / 100f)
+            }
+        }
+    }
+
+    data class Voice(val id: String, val text: String, val samples: FloatArray, val rate: Int, val style: Style = Style())
+
+    /** A new recording: its style starts at the defaults. */
     @Synchronized
     fun set(pcm24k: ShortArray, text: String): String {
         val id = id(ScreenAssetStore.bytes(pcm24k), text)
@@ -96,11 +123,23 @@ class VoiceProfile(private val dir: File) {
         return id
     }
 
+    /** The same recording spoken another way; the voice's id changes with it, so every line is spoken again. */
+    @Synchronized
+    fun setStyle(style: Style): String? {
+        val f = File(dir, "voice.json")
+        val m = runCatching { JSONObject(f.readText()) }.getOrNull() ?: return null
+        val pcm = File(dir, "ref.pcm").takeIf { it.isFile }?.readBytes() ?: return null
+        val id = id(pcm, m.getString("text"), style)
+        f.writeText(m.put("id", id).put("speed", style.speed.toDouble()).put("guidance", style.guidance.toDouble()).toString())
+        return id
+    }
+
     @Synchronized
     fun get(): Voice? = runCatching {
         val m = JSONObject(File(dir, "voice.json").readText())
         val pcm = ScreenAssetStore.pcm(File(dir, "ref.pcm").readBytes())
-        Voice(m.getString("id"), m.getString("text"), FloatArray(pcm.size) { pcm[it] / 32768f }, m.optInt("rate", RATE))
+        val style = Style(m.optDouble("speed", 1.0).toFloat(), m.optDouble("guidance", 1.0).toFloat())
+        Voice(m.getString("id"), m.getString("text"), FloatArray(pcm.size) { pcm[it] / 32768f }, m.optInt("rate", RATE), style)
     }.getOrNull()
 
     @Synchronized
@@ -109,10 +148,10 @@ class VoiceProfile(private val dir: File) {
     companion object {
         const val RATE = 24000
 
-        fun id(pcm: ByteArray, text: String): String {
+        fun id(pcm: ByteArray, text: String, style: Style = Style()): String {
             val md = MessageDigest.getInstance("SHA-256")
             md.update(pcm)
-            md.update("\n$text".toByteArray())
+            md.update("\n$text${style.tag()}".toByteArray())
             return md.digest().joinToString("") { "%02x".format(it) }
         }
     }
@@ -163,11 +202,12 @@ class SpeechJobs(
         }
     }
 
-    /** One line to listen to; [done] gets it, or null with why. */
-    fun sample(text: String, done: (ShortArray?, String?) -> Unit) {
+    /** One line to listen to, in [style] when given (tried before it is kept); [done] gets it, or null with why. */
+    fun sample(text: String, style: VoiceProfile.Style? = null, done: (ShortArray?, String?) -> Unit) {
         worker.execute {
             try {
-                val v = ready(null)
+                val kept = ready(null)
+                val v = if (style == null || style == kept.style) kept else kept.copy(style = style, id = "${kept.id}${style.tag()}|trial")
                 done(line(v, text), null)
             } catch (e: Exception) {
                 done(null, e.message ?: e.javaClass.simpleName)
@@ -201,7 +241,7 @@ class SpeechJobs(
         var waited = 0
         while (busy() && waited < 3600) { Thread.sleep(1000); waited++ }
         val started = System.currentTimeMillis()
-        val pcm = boost().use { cloner.speak(text, v.samples, v.rate, v.text) }
+        val pcm = boost().use { cloner.speak(text, v.samples, v.rate, v.text, v.style) }
         log("spoke ${text.length} character(s) in ${(System.currentTimeMillis() - started) / 1000}s")
         cacheDir.mkdirs()
         cached.writeBytes(ScreenAssetStore.bytes(pcm))

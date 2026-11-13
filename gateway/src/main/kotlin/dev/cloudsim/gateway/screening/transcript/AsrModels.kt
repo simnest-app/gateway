@@ -1,11 +1,11 @@
 package dev.cloudsim.gateway.screening.transcript
 
+import dev.cloudsim.gateway.screening.voice.ModelDownload
+import dev.cloudsim.gateway.screening.voice.ModelSources
 import dev.cloudsim.gateway.screening.voice.fetchModel
+import dev.cloudsim.gateway.screening.voice.openModel
 import dev.cloudsim.gateway.screening.voice.untarModel
 import java.io.File
-import java.io.InputStream
-import java.net.HttpURLConnection
-import java.net.URL
 
 /**
  * The models for transcribing a screened call (SCREENING_ASSISTANT.md 13): silero VAD (MIT) to cut the caller's
@@ -16,7 +16,9 @@ import java.net.URL
 class AsrModels(
     private val dir: File,
     private val sideload: File?,
-    private val open: (String) -> InputStream = { url -> (URL(url).openConnection() as HttpURLConnection).apply { connectTimeout = 15_000; readTimeout = 60_000; instanceFollowRedirects = true }.inputStream },
+    private val open: (String, Long) -> ModelDownload = ::openModel,
+    /** Where each file may come from, in order (ModelSources). */
+    private val sources: (String) -> List<String> = { ModelSources.urls(it) },
     private val log: (String) -> Unit = {},
 ) {
     sealed interface State {
@@ -41,8 +43,8 @@ class AsrModels(
         dir.mkdirs()
         try {
             state = State.Downloading(0)
-            if (!vad.isFile) fetchModel(dir, sideload, open, log, VAD_URL, VAD_SHA, VAD_BYTES, {}) { it.renameTo(vad) }
-            if (!File(sensevoice, "model.int8.onnx").isFile) fetchModel(dir, sideload, open, log, SENSEVOICE_URL, SENSEVOICE_SHA, SENSEVOICE_BYTES,
+            if (!vad.isFile) fetchModel(dir, sideload, open, log, sources(VAD_URL), VAD_SHA, VAD_BYTES, {}) { it.renameTo(vad) }
+            if (!File(sensevoice, "model.int8.onnx").isFile) fetchModel(dir, sideload, open, log, sources(SENSEVOICE_URL), SENSEVOICE_SHA, SENSEVOICE_BYTES,
                 { state = State.Downloading((100 * it / SENSEVOICE_BYTES).toInt().coerceIn(0, 99)) }) { tmp ->
                 val staging = File(dir, "$SENSEVOICE_DIR.part").apply { deleteRecursively() }
                 untarModel(tmp, staging)

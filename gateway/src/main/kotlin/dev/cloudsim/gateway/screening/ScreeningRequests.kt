@@ -91,7 +91,8 @@ class ScreeningRequests(
             "asset", "voice" -> piece(from, requestId, plain)
             "status" -> status(from, requestId, plain.optString("number"))
             "models" -> models(from, requestId, plain.optBoolean("download"))
-            "sample" -> sample(from, requestId, plain.optString("text"))
+            "sample" -> sample(from, requestId, plain.optString("text"), styleOf(plain))
+            "style" -> setStyle(from, requestId, plain)
             "transcript" -> transcript(from, requestId, plain.optString("call_id"))
             "remove" -> {
                 val number = plain.optString("number")
@@ -209,6 +210,8 @@ class ScreeningRequests(
             else -> "missing"
         })
         if (m is dev.cloudsim.gateway.screening.voice.VoiceModels.State.Downloading) out.put("percent", m.percent)
+        // How the voice is spoken now, for the iPhone's sliders.
+        v.profile.get()?.let { out.put("voice", it.id).put("style", it.style.json()) }
         // The set in place, so saving settings that leave the lines alone sends and speaks nothing (2026-11-10).
         if (number.isNotEmpty()) store.installed(number)?.let { out.put("installed", it) }
         if (p != null) {
@@ -259,14 +262,29 @@ class ScreeningRequests(
     }
 
     /** One line in the owner's voice to listen to, sent back as 8 kHz WAV (what a caller hears) in pieces. */
-    private fun sample(to: String, requestId: String, text: String) {
+    private fun sample(to: String, requestId: String, text: String, style: dev.cloudsim.gateway.screening.voice.VoiceProfile.Style?) {
         val v = voice ?: return answer(to, requestId, JSONObject().put("error", "unsupported"))
         if (text.trim().length !in 1..120) return answer(to, requestId, JSONObject().put("error", "too_long"))
-        v.jobs.sample(text.trim()) { pcm, why ->
+        v.jobs.sample(text.trim(), style) { pcm, why ->
             if (pcm == null) return@sample answer(to, requestId, JSONObject().put("error", why ?: "failed"))
             val wav = Base64.getEncoder().encodeToString(wav8k(pcm))
             answerParts(to, requestId, wav.chunked(SAMPLE_PART).map { JSONObject().put("chunk", it) })
         }
+    }
+
+    /** The style asked for with a sample or to keep: speed and guidance, both or neither. */
+    private fun styleOf(plain: JSONObject): dev.cloudsim.gateway.screening.voice.VoiceProfile.Style? =
+        if (plain.has("speed") || plain.has("guidance"))
+            dev.cloudsim.gateway.screening.voice.VoiceProfile.Style.of(plain.optDouble("speed", 1.0), plain.optDouble("guidance", 1.0))
+        else null
+
+    /** Keeps how the owner's voice is spoken (speed, "like me"); the answer is the voice's new id, and the style. */
+    private fun setStyle(to: String, requestId: String, plain: JSONObject) {
+        val v = voice ?: return answer(to, requestId, JSONObject().put("error", "unsupported"))
+        val style = styleOf(plain) ?: return answer(to, requestId, JSONObject().put("error", "bad_style"))
+        val id = v.profile.setStyle(style) ?: return answer(to, requestId, JSONObject().put("error", "no_voice"))
+        log("voice style: speed ${style.speed}, guidance ${style.guidance}")
+        answer(to, requestId, JSONObject().put("voice", id).put("style", style.json()))
     }
 
     private fun answer(to: String, requestId: String, item: JSONObject) = answerParts(to, requestId, listOf(item))

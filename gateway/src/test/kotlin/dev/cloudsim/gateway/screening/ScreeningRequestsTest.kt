@@ -71,6 +71,50 @@ class ScreeningRequestsTest {
         assertEquals(50 * 1600, store.clips("sim1").greeting()!!.size)
     }
 
+    /** Speed and "like me" (the user's 2026-11-13 request): tried with a sample, then kept as a new voice id. */
+    @Test
+    fun aStyleIsTriedThenKept() {
+        val models = dev.cloudsim.gateway.screening.voice.VoiceModels(tmp.newFolder("models"), null)
+        java.io.File(models.zipvoice.apply { mkdirs() }, "encoder.int8.onnx").writeText("x")
+        java.io.File(models.zipvoice, "decoder.int8.onnx").writeText("x")
+        java.io.File(models.zipvoice, "tokens.txt").writeText("x")
+        models.vocoder.writeText("x")
+        models.denoiser.writeText("x")
+        val profile = dev.cloudsim.gateway.screening.voice.VoiceProfile(tmp.newFolder("voice"))
+        val styles = java.util.Collections.synchronizedList(mutableListOf<dev.cloudsim.gateway.screening.voice.VoiceProfile.Style>())
+        val jobs = dev.cloudsim.gateway.screening.voice.SpeechJobs(models, profile, { _, _, _, _, style -> styles += style; ShortArray(1600) },
+            tmp.newFolder("cache"), { false })
+        val requests = ScreeningRequests(client, RequestsSealer(), { owner }, store, { key }, { b -> ShortArray(b.size * 1600) },
+            voice = ScreeningRequests.VoiceSetup(profile, jobs, models) { ShortArray(24000 * 5) })
+        fun send(payload: JSONObject) {
+            val id = "screening-${n++}-0000"
+            requests.onRequest(JSONObject().put("device_id", owner).put("request_id", id).put("public_key", b64(ownerKey.publicKey))
+                .put("envelope", JSONObject().put("kind", "screening").put("signer", b64(ownerKey.publicKey)).put("plain", payload.put("request_id", id).toString()).toString()))
+        }
+        val voice = JSONObject().put("audio", b64(ByteArray(10))).put("text", "您好，我是机主的接听助手。").toString().toByteArray()
+        send(JSONObject().put("op", "voice").put("number", "_voice").put("set", "voice-00000002").put("index", 0).put("count", 1).put("chunk", b64(voice)))
+        val plain = answer().getString("voice")
+        // Tried: spoken that way, nothing kept.
+        send(JSONObject().put("op", "sample").put("text", "您好").put("speed", 1.1).put("guidance", 1.5))
+        repeat(50) { if (styles.isEmpty()) Thread.sleep(20) }
+        assertEquals(dev.cloudsim.gateway.screening.voice.VoiceProfile.Style(1.1f, 1.5f), styles.last())
+        assertEquals(plain, profile.get()!!.id)
+        // Out of range: refused.
+        send(JSONObject().put("op", "style").put("speed", 3.0).put("guidance", 1.0))
+        assertEquals("bad_style", answer().getString("error"))
+        // Kept: a new id, and a set for the old one is refused.
+        send(JSONObject().put("op", "style").put("speed", 1.1).put("guidance", 1.5))
+        val kept = answer()
+        val styled = kept.getString("voice")
+        assertTrue(styled != plain)
+        assertEquals(1.5, kept.getJSONObject("style").getDouble("guidance"), 0.001)
+        val bundle = JSONObject().put("texts", JSONObject().put("greeting", "您好")).put("voice", plain).toString().toByteArray()
+        send(JSONObject().put("op", "asset").put("number", "sim1").put("set", "set-00000010").put("index", 0).put("count", 1).put("chunk", b64(bundle)))
+        assertEquals("voice_changed", answer().getString("error"))
+        send(JSONObject().put("op", "status").put("number", ""))
+        assertEquals(styled, answer().getString("voice"))
+    }
+
     /** The owner's voice, then a set spoken in it on the job thread (SCREENING_ASSISTANT.md 12.2). */
     @Test
     fun aSetIsSpokenInTheOwnersVoice() {
@@ -82,7 +126,7 @@ class ScreeningRequestsTest {
         models.denoiser.writeText("x")
         val profile = dev.cloudsim.gateway.screening.voice.VoiceProfile(tmp.newFolder("voice"))
         val spoken = mutableListOf<String>()
-        val jobs = dev.cloudsim.gateway.screening.voice.SpeechJobs(models, profile, { text, _, _, _ -> spoken += text; ShortArray(1600) },
+        val jobs = dev.cloudsim.gateway.screening.voice.SpeechJobs(models, profile, { text, _, _, _, _ -> spoken += text; ShortArray(1600) },
             tmp.newFolder("cache"), { false })
         val requests = ScreeningRequests(client, RequestsSealer(), { owner }, store, { key }, { b -> ShortArray(b.size * 1600) },
             voice = ScreeningRequests.VoiceSetup(profile, jobs, models) { ShortArray(24000 * 5) })

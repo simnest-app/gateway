@@ -134,7 +134,8 @@ class GatewayService : Service() {
         running = true
         Log.i(TAG, "gateway service starting ${dev.cloudsim.gateway.BuildConfig.VERSION_NAME}")
         GatewayLog.start(this)
-        ServiceCompat.startForeground(this, NOTIFICATION_ID, notification(), if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0)
+        goForeground()
+        keepForeground()
         val signer = KeystoreSigner()
         val client = ControlClient(BuildInfo.service, signer)
         val connection = BridgeConnection(File(getExternalFilesDir(null), "bridge-token"), { message ->
@@ -620,6 +621,38 @@ class GatewayService : Service() {
             telecom.endCall()
         }.onFailure { Log.w(TAG, "end", it) }.getOrDefault(false)
     }
+
+    private fun goForeground() =
+        ServiceCompat.startForeground(this, NOTIFICATION_ID, notification(), if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0)
+
+    /**
+     * MIUI holds a just-replaced app back for a few seconds: started then (after an update, by MY_PACKAGE_REPLACED),
+     * startForeground is refused without an error and the system takes the service down two minutes later, leaving
+     * the gateway offline until someone opens it (0.43.5 on the Redmi, 2026-11-13; likely the 2026-11-08 one too).
+     * Asked again every 5 s for 3 minutes until it holds.
+     */
+    private fun keepForeground() {
+        val main = android.os.Handler(mainLooper)
+        Thread({
+            for (i in 1..36) {
+                Thread.sleep(5000)
+                if (!running) return@Thread
+                if (inForeground()) {
+                    if (i > 1) Log.i(TAG, "in the foreground after ${i * 5}s")
+                    return@Thread
+                }
+                Log.w(TAG, "not in the foreground, asking again")
+                main.post { runCatching { goForeground() }.onFailure { Log.w(TAG, "foreground refused: ${it.message}") } }
+            }
+            Log.e(TAG, "still not in the foreground after 3 minutes")
+        }, "foreground").apply { isDaemon = true }.start()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun inForeground(): Boolean = runCatching {
+        (getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager).getRunningServices(50)
+            .any { it.service.className == GatewayService::class.java.name && it.foreground }
+    }.getOrDefault(true)
 
     private fun notification(): Notification {
         val manager = getSystemService(NotificationManager::class.java)
