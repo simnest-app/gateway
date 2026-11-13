@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SimNest 网关</string>
+    <string name="status_not_set_up">尚未设置</string>
+    <string name="dial_label">SimNest 拨号</string>
+    <string name="sms_label">发短信</string>
+</resources>

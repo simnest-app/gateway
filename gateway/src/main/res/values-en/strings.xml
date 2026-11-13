@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SimNest Gateway</string>
+    <string name="status_not_set_up">Not set up</string>
+    <string name="dial_label">SimNest Dial</string>
+    <string name="sms_label">Message</string>
+</resources>

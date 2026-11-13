@@ -1,0 +1,37 @@
+[versions]
+agp = "9.5.0"
+kotlin = "2.4.21"
+compose-bom = "2026.09.00"
+activity-compose = "1.13.0"
+core-ktx = "1.19.1"
+junit = "4.13.2"
+lifecycle = "2.11.0"
+zxing = "3.5.4"
+# Frozen for stage 4 (docs/architecture/IMPLEMENTATION_PLAN.md); AAR SHA-1 fff36ed556e69eff8429ae723c04117a9ce3b8ef.
+stream-webrtc = "1.3.10"
+kadb = "2.1.5"
+boringssl = "20251124"
+org-json = "20260814"
+# HPKE for end-to-end sealing (docs/architecture/CALLER_DIAL_3E.md), Apache-2.0.
+tink = "1.24.0"
+# tar.bz2 of the voice models downloaded by the gateway (SCREENING_ASSISTANT.md 12.2), Apache-2.0.
+commons-compress = "1.27.1"
+
+[libraries]
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
+compose-material3 = { module = "androidx.compose.material3:material3" }
+junit = { module = "junit:junit", version.ref = "junit" }
+androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
+stream-webrtc = { module = "io.getstream:stream-webrtc-android", version.ref = "stream-webrtc" }
+kadb = { module = "com.flyfishxu:kadb", version.ref = "kadb" }
+boringssl = { module = "io.github.vvb2060.ndk:boringssl", version.ref = "boringssl" }
+org-json = { module = "org.json:json", version.ref = "org-json" }
+tink-android = { module = "com.google.crypto.tink:tink-android", version.ref = "tink" }
+commons-compress = { module = "org.apache.commons:commons-compress", version.ref = "commons-compress" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

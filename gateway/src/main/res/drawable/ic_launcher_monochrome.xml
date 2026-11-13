@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 由 docs/brand/logo/build.py 生成，不要手改 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.08" android:scaleY="0.08" android:translateX="13.04" android:translateY="10.56">
+        <path android:strokeColor="#FFFFFF" android:strokeWidth="22" android:pathData="M290 166H640Q664 166 681 183L807 309Q824 326 824 350V520C824 700 700 832 546 904Q512 920 478 904C324 832 200 700 200 520V256A90 90 0 0 1 290 166Z"/>
+        <group android:translateX="512" android:translateY="448" android:rotation="45" android:scaleX="1.1" android:scaleY="1.1">
+            <group android:translateY="-105">
+                <path android:strokeColor="#FFFFFF" android:strokeWidth="106" android:strokeLineCap="round" android:pathData="M-165,95A190,190 0 0 0 165,95"/>
+                <group android:translateX="165" android:translateY="95" android:rotation="30"><path android:fillColor="#FFFFFF" android:pathData="M-36,-72H-14A64,64 0 0 1 50,-8V8A64,64 0 0 1 -14,72H-36A64,64 0 0 1 -100,8V-8A64,64 0 0 1 -36,-72Z"/></group>
+                <group android:translateX="-165" android:translateY="95" android:rotation="150"><path android:fillColor="#FFFFFF" android:pathData="M-36,-72H-14A64,64 0 0 1 50,-8V8A64,64 0 0 1 -14,72H-36A64,64 0 0 1 -100,8V-8A64,64 0 0 1 -36,-72Z"/></group>
+            </group>
+        </group>
+        <path android:fillColor="#FFFFFF" android:pathData="M431.0 686.5H462.0A7 7 0 0 1 469.0 693.5V739.5A7 7 0 0 1 462.0 746.5H412.0A7 7 0 0 1 405.0 739.5V712.5A26 26 0 0 1 431.0 686.5Z"/>
+        <path android:fillColor="#FFFFFF" android:pathData="M487.0 686.5H537.0A7 7 0 0 1 544.0 693.5V739.5A7 7 0 0 1 537.0 746.5H487.0A7 7 0 0 1 480.0 739.5V693.5A7 7 0 0 1 487.0 686.5Z"/>
+        <path android:fillColor="#FFFFFF" android:pathData="M562.0 686.5H593.0A26 26 0 0 1 619.0 712.5V739.5A7 7 0 0 1 612.0 746.5H562.0A7 7 0 0 1 555.0 739.5V693.5A7 7 0 0 1 562.0 686.5Z"/>
+        <path android:fillColor="#FFFFFF" android:pathData="M412.0 757.5H462.0A7 7 0 0 1 469.0 764.5V810.5A7 7 0 0 1 462.0 817.5H431.0A26 26 0 0 1 405.0 791.5V764.5A7 7 0 0 1 412.0 757.5Z"/>
+        <path android:fillColor="#FFFFFF" android:pathData="M487.0 757.5H537.0A7 7 0 0 1 544.0 764.5V810.5A7 7 0 0 1 537.0 817.5H487.0A7 7 0 0 1 480.0 810.5V764.5A7 7 0 0 1 487.0 757.5Z"/>
+        <path android:fillColor="#FFFFFF" android:pathData="M562.0 757.5H612.0A7 7 0 0 1 619.0 764.5V791.5A26 26 0 0 1 593.0 817.5H562.0A7 7 0 0 1 555.0 810.5V764.5A7 7 0 0 1 562.0 757.5Z"/>
+    </group>
+</vector>

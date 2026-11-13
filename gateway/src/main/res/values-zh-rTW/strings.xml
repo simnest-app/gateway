@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SimNest 閘道</string>
+    <string name="status_not_set_up">尚未設定</string>
+    <string name="dial_label">SimNest 撥號</string>
+    <string name="sms_label">傳送簡訊</string>
+</resources>
