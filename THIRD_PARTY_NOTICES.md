@@ -30,7 +30,7 @@ normally sits under those names is used.
 | Apache Commons Compress | 1.27.1 | Apache-2.0 |
 | sherpa-onnx, with ONNX Runtime linked in | 1.13.8 | Apache-2.0; ONNX Runtime is MIT |
 
-Licence texts kept with the app: `gateway/src/main/assets/licenses/`.
+Licence texts kept with the app and shown on its About page: `gateway/src/main/assets/licenses/` (`INDEX.txt` says which text covers which component).
 
 Only in tests, not in the app: JUnit 4.13.2 (EPL-1.0), org.json 20260814 (public domain).
 

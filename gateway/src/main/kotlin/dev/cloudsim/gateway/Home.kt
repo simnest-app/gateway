@@ -181,6 +181,8 @@ internal fun SubPage(page: Page, model: PairingViewModel, back: () -> Unit) {
             Text(BuildInfo.summary())
             dev.cloudsim.gateway.update.UpdateCard()
             LegalLinks()
+            OpenSourceLicenses()
+            Text(L.t("网关的源码以 GPL-3.0 公开：github.com/simnest-app/gateway"), style = MaterialTheme.typography.bodySmall)
         }
     }
 }

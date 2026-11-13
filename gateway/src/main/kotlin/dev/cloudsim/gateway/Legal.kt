@@ -88,3 +88,35 @@ fun LegalLinks() {
         )
     }
 }
+
+/** "开源许可" on the About page: what the gateway is built from, and each licence in full (assets/licenses). */
+@Composable
+fun OpenSourceLicenses() {
+    val context = LocalContext.current
+    var open by remember { mutableStateOf(false) }
+    var reading by remember { mutableStateOf<String?>(null) }
+    val files = remember { runCatching { context.assets.list("licenses")?.filter { it != "INDEX.txt" }?.sorted() }.getOrNull().orEmpty() }
+    fun text(name: String) = runCatching { context.assets.open("licenses/$name").use { it.readBytes().decodeToString() } }.getOrDefault("")
+    TextButton(onClick = { open = true }) { Text(L.t("开源许可")) }
+    if (open) {
+        AlertDialog(
+            onDismissRequest = { open = false },
+            confirmButton = { TextButton(onClick = { open = false }) { Text(L.t("关闭")) } },
+            title = { Text(L.t("开源许可")) },
+            text = {
+                Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
+                    Text(text("INDEX.txt"), style = MaterialTheme.typography.bodySmall)
+                    files.forEach { name -> TextButton(onClick = { reading = name }) { Text(name.removeSuffix(".txt")) } }
+                }
+            },
+        )
+    }
+    reading?.let { name ->
+        AlertDialog(
+            onDismissRequest = { reading = null },
+            confirmButton = { TextButton(onClick = { reading = null }) { Text(L.t("关闭")) } },
+            title = { Text(name.removeSuffix(".txt")) },
+            text = { Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState())) { Text(text(name), style = MaterialTheme.typography.bodySmall) } },
+        )
+    }
+}

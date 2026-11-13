@@ -468,6 +468,8 @@ object I18nTables {
         "不是这个应用" to "not this app",
         "版本不比现在的新" to "not newer than the installed version",
         "签名和现在的不一样" to "signed with a different key",
+        "开源许可" to "Open Source Licences",
+        "网关的源码以 GPL-3.0 公开：github.com/simnest-app/gateway" to "The gateway's source is public under GPL-3.0: github.com/simnest-app/gateway",
     )
 
     val zhHant: Map<String, String> = mapOf(
@@ -936,5 +938,7 @@ object I18nTables {
         "不是这个应用" to "不是這個應用程式",
         "版本不比现在的新" to "版本不比現在的新",
         "签名和现在的不一样" to "簽名和現在的不一樣",
+        "开源许可" to "開源許可",
+        "网关的源码以 GPL-3.0 公开：github.com/simnest-app/gateway" to "閘道的原始碼以 GPL-3.0 公開：github.com/simnest-app/gateway",
     )
 }

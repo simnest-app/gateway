@@ -1,0 +1,25 @@
+SimNest Gateway is licensed under the GNU General Public License, version 3.
+Source: https://github.com/simnest-app/gateway
+
+It uses these components, each under its own licence:
+
+Apache License 2.0 (Apache-2.0.txt)
+  AndroidX, Jetpack Compose and Material 3; the Kotlin standard library and coroutines;
+  stream-webrtc-android (GetStream); ZXing; Apache Commons Compress; sherpa-onnx;
+  gson, error_prone_annotations and annotation-jvm (through Tink)
+
+Apache License 2.0, with their own copies
+  Kadb (Kadb-LICENSE.txt), Okio (Okio-LICENSE.txt), Tink (Tink-LICENSE.txt),
+  BoringSSL (BoringSSL-LICENSE.txt), scrcpy, from which the shell identity code is adapted (scrcpy-LICENSE.txt)
+
+BSD-style
+  WebRTC (WebRTC-LICENSE.txt), jsr305 (jsr305-LICENSE.txt)
+
+MIT-style
+  ONNX Runtime, linked into sherpa-onnx (ONNXRuntime-LICENSE.txt), Bouncy Castle (BouncyCastle-LICENSE.txt)
+
+Mozilla Public License 2.0
+  libplum, with one file changed (libplum-LICENSE.txt)
+
+The speech models the assistant downloads when it is set up (Silero VAD, SenseVoice, ZipVoice, Vocos, GTCRN) are
+not part of this app. They come from the sherpa-onnx project's releases, each under its authors' own terms.

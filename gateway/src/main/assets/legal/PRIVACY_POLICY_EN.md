@@ -64,7 +64,7 @@ Owners choose what each family member may do, and can change or revoke it at any
 
 ## Where data is kept, and security
 
-Our servers are in mainland China (Shenzhen). Notifications are delivered through Apple Push Notification service, which receives only the push token, the words "新短信" and ciphertext.
+Notifications are delivered through Apple Push Notification service, which receives only the push token, the words "新短信" and ciphertext.
 
 Connections use TLS with certificate pinning. End-to-end encryption uses HPKE (X25519 / HKDF-SHA256 / AES-128-GCM) with device signatures. Private keys stay in the iPhone Secure Enclave or Keychain, and in the Android Keystore.
 
