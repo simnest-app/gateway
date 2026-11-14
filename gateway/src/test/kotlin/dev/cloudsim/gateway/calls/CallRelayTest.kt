@@ -102,10 +102,27 @@ class CallRelayTest {
             .put("public_key", b64(signer.publicKey)).put("signature", b64(signer.sign(Protocol.mediaMessage(relay.currentCall!!, "offer", gen, sdp)))))
 
     @Test
+    fun earpieceSilencedAtTheAnswerAndAgainWhenTheCallGoesOffHook() {
+        relay.onPhoneState(CallRelay.RINGING)
+        event("call.answer", phoneId)
+        assertEquals(listOf("quiet"), bridge.sent.map { it.getString("type") })
+        relay.onPhoneState(CallRelay.OFFHOOK)
+        assertEquals(listOf("quiet", "quiet"), bridge.sent.map { it.getString("type") })
+        assertTrue(bridge.sent.all { it.getString("call_id") == relay.currentCall })
+    }
+
+    @Test
+    fun answeredOnTheGatewayItselfLeavesTheEarpieceAlone() {
+        relay.onPhoneState(CallRelay.RINGING)
+        relay.onPhoneState(CallRelay.OFFHOOK)
+        assertTrue(bridge.sent.none { it.getString("type") == "quiet" })
+    }
+
+    @Test
     fun signedOfferFromTheAnsweringPhoneReachesTheBridge() {
         answeredBy(phoneId)
         offer(phoneKey)
-        assertEquals(listOf("quiet", "offer"), bridge.sent.map { it.getString("type") })
+        assertEquals(listOf("quiet", "quiet", "offer"), bridge.sent.map { it.getString("type") })
         relay.onBridge(JSONObject().put("type", "answer").put("call_id", relay.currentCall).put("gen", 0).put("sdp", "v=0 answer"))
         val answer = client.sent.last()
         assertEquals("POST /v1/calls/${relay.currentCall}/media", answer.first)
@@ -242,7 +259,7 @@ class CallRelayTest {
         relay.onBridge(JSONObject().put("type", "ended").put("call_id", relay.currentCall).put("reason", "ice_lost"))
         assertEquals(1, phone.ends)
         relay.onPhoneState(CallRelay.IDLE)
-        assertEquals(listOf("quiet", "offer", "stop", "warm"), bridge.sent.map { it.getString("type") })
+        assertEquals(listOf("quiet", "quiet", "offer", "stop", "warm"), bridge.sent.map { it.getString("type") })
     }
 
     private fun event(type: String, device: String = phoneId) =
@@ -441,6 +458,8 @@ class CallRelayTest {
         assertEquals(listOf("10086"), phone.dialed)
         assertEquals("quiet", bridge.sent.last().getString("type"))
         relay.onPhoneState(CallRelay.OFFHOOK)
+        // Silenced again as the line comes up (the Mate 40 Pro+ raises its earpiece then).
+        assertEquals(listOf("quiet", "quiet"), bridge.sent.map { it.getString("type") })
         assertEquals("active", stateOf("dial-0001").getString("state"))
         assertEquals(phoneId, stateOf("dial-0001").getString("answered_by"))
         // Media from the phone that dialed reaches the bridge, as for an answered call.

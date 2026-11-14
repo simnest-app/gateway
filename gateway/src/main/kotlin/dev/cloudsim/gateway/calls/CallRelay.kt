@@ -376,6 +376,7 @@ class CallRelay(
                 // Off-hook only means the line is up; ordinary apps cannot see when the other side picks up.
                 phase = Phase.ACTIVE
                 cancelTimers()
+                quietAgain()
                 // As the default phone app the far end's answer follows; until then the phone only plays ringback.
                 farPending = telephony.precise()
                 phones[answeredBy!!] = Phone("answer", joined = true)
@@ -388,6 +389,7 @@ class CallRelay(
                 // Off-hook without a remote answer in flight means someone answered on this phone.
                 val by = answering ?: LOCAL
                 answeredBy = by
+                if (by != LOCAL) quietAgain()
                 screenTimer?.invoke()
                 screenTimer = null
                 if (by == ASSISTANT) return startAssistant()
@@ -414,6 +416,16 @@ class CallRelay(
                 log("a call dialled on this phone is over: uplink warmed again")
             }
         }
+    }
+
+    /**
+     * The earpiece silenced at the answer (or the dial) again as the call goes off-hook: the Mate 40 Pro+ puts its
+     * earpiece volume back to the user's level at that moment, and the caller was heard there until the media started
+     * (measured 2026-11-13: 0 at the answer, 12 again 0.26 s later as the call went off-hook, for 6.5 s). The bridge
+     * also re-asserts it every 200 ms until then; this closes the gap at once.
+     */
+    private fun quietAgain() {
+        bridge.send(JSONObject().put("type", "quiet").put("call_id", callId))
     }
 
     /** A call dialled on this phone while no call was being relayed; see [warmAfterOwnCall]. */
@@ -801,10 +813,13 @@ class CallRelay(
                 val gen = message.getInt("gen")
                 val sdp = message.getString("sdp")
                 val to = message.optString("member").takeIf { it.isNotEmpty() && it != "phone" }
-                report {
+                // Timed with the bridge's own steps (its "answer" line): which part of an answer is slow (ANSWER_DELAY.md 8.6).
+                val started = System.nanoTime()
+                val posted = report {
                     client.call("POST", "/v1/calls/$callId/media", JSONObject().put("kind", "answer").put("gen", gen).put("sdp", sdp).put("to", to ?: "")
                         .put("signature", b64(signer.sign(Protocol.mediaMessage(callId!!, "answer", gen, sdp)))))
                 }
+                log("media answer gen=$gen to ${to?.take(8) ?: "phone"} ${if (posted) "posted" else "not posted"} in ${(System.nanoTime() - started) / 1_000_000} ms")
             }
             "member_connected" -> if (id == callId && phase == Phase.ACTIVE) connected(message.optString("member"))
             // One phone's media is gone (it dropped and did not come back); the others carry on.

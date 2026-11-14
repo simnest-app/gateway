@@ -99,7 +99,8 @@ class ScreeningRelayTest {
         val active = states().last()
         assertEquals("assistant", active.getString("answered_by"))
         assertEquals("screen:greeting", active.getString("reason"))
-        assertEquals(listOf("quiet", "assist"), bridge.types().take(2))
+        // Silenced at the answer and again as the call goes off-hook (the Mate 40 Pro+ raises its earpiece then).
+        assertEquals(listOf("quiet", "quiet", "assist"), bridge.types().take(3))
         // The greeting goes to the bridge in 100 ms pieces; the last names it.
         val says = bridge.sent.filter { it.getString("type") == "say" }
         assertEquals("greeting", says.last().getString("end"))

@@ -72,6 +72,15 @@ public final class BridgeMain {
         java.util.Arrays.asList("HUAWEI", "HONOR").contains(android.os.Build.MANUFACTURER.toUpperCase(java.util.Locale.ROOT));
     /** After a connected call loses ICE, the phone has this long to restart it before the bridge ends the media. */
     private static final long RECOVERY_MS = 10_000;
+    /**
+     * For a phone that is asking again (it restarted ICE within the last RESTART_RECENT_MS): it is there and
+     * reconnecting, and ends the call itself when it gives up, at 10 s, or at 20 s with a VPN on, which reconnects
+     * first after a change of network (ANSWER_DELAY.md 10.25). A phone that has gone silent is still dropped at
+     * RECOVERY_MS. "A newer offer than the last connected moment" did not tell: the offer comes the moment the
+     * phone's network changes, seconds before this side sees the path gone (10.27).
+     */
+    private static final long RECOVERY_ASKING_MS = 21_000;
+    private static final long RESTART_RECENT_MS = 30_000;
 
     private static Context context;
     /**
@@ -81,8 +90,20 @@ public final class BridgeMain {
     private static JavaAudioDeviceModule adm;
     private static PeerConnectionFactory factory;
     private static volatile Session session;
-    /** Earpiece silence started at a remote answer, before the first offer; the session takes it over. */
-    private static Silence pendingQuiet;
+    /**
+     * Earpiece silence started at a remote answer (or a dial), before the first offer; the session takes it over.
+     * Re-asserted every 200 ms meanwhile (QuietHold); two minutes without media gives the volume back.
+     */
+    private static final QuietHold<Silence> pendingQuiet = new QuietHold<>(200, 120_000);
+    /** At most 1 s of a phone's audio waiting to be played (50 packets of 20 ms), ANSWER_DELAY.md 8.7. */
+    static final int JITTER_BUFFER_PACKETS = 50;
+    /** When the last offer reached this process, to time the answer from it. */
+    private static volatile long offerReceivedAt;
+
+    /** Wall-clock time of day, to line this log up with the app's and the phone's. */
+    private static String clock() {
+        return new java.text.SimpleDateFormat("HH:mm:ss.SSS", java.util.Locale.ROOT).format(new java.util.Date());
+    }
     /** A call whose recording was asked for before its media started (RECORDING_V7.md): the session starts it. */
     private static String pendingRecord;
     /** A recording notice handed over before its call's media started (RECORDING_NOTICE.md 8): the session plays it. */
@@ -175,6 +196,7 @@ public final class BridgeMain {
         String type = m.getString("type"), callId = m.optString("call_id");
         switch (type) {
             case "offer": {
+                offerReceivedAt = SystemClock.elapsedRealtime();
                 Session s = session;
                 if (s != null && !s.callId.equals(callId)) stopSession("replaced");
                 try {
@@ -192,11 +214,12 @@ public final class BridgeMain {
                 break;
             }
             case "quiet":
-                // A phone answered: silence the earpiece now rather than when the first offer arrives.
+                // A phone answered (or a dial began): silence the earpiece now rather than when the first offer
+                // arrives, and keep it silent until then. Sent again when the call goes active: asserted again at once.
                 synchronized (BridgeMain.class) {
-                    if (session == null && pendingQuiet == null) {
-                        try { pendingQuiet = Silence.enable(); } catch (Exception e) { System.out.println("quiet failed " + e); }
-                    }
+                    Session s = session;
+                    if (s != null) s.quiet.enforce();
+                    else try { pendingQuiet.quiet(Silence::enable); } catch (Exception e) { System.out.println("quiet failed " + e); }
                 }
                 break;
             case "leave": {
@@ -331,14 +354,12 @@ public final class BridgeMain {
     }
 
     static synchronized void releaseQuiet() {
-        if (pendingQuiet != null) pendingQuiet.disable();
-        pendingQuiet = null;
+        pendingQuiet.release();
     }
 
     /** Hands over silence started at the answer, so its saved normal volume is the one restored. */
     static synchronized Silence takeQuiet() throws Exception {
-        Silence s = pendingQuiet;
-        pendingQuiet = null;
+        Silence s = pendingQuiet.take();
         return s != null ? s : Silence.enable();
     }
 
@@ -764,16 +785,44 @@ public final class BridgeMain {
             volatile int generation = -1;
             volatile String ice = "NEW";
             volatile long lastConnected;
+            /** When this phone last restarted ICE (an offer of a later generation), to tell one that is reconnecting from one that is gone. */
+            volatile long lastRestart;
             volatile boolean announced;
             volatile CountDownLatch gathered = new CountDownLatch(1);
             /** Router port mappings for this phone's connection (DIRECT_PATHS.md 4), removed when it closes. */
             final List<Integer> mappings = new ArrayList<>();
+
+            private double jbDelay;
+            private long jbEmitted;
+
+            /** How long this phone's audio waited in the receive buffer on average since the last reading. */
+            void logJitterBuffer() {
+                PeerConnection p = pc;
+                if (p == null) return;
+                p.getStats(report -> {
+                    for (RTCStats st : report.getStatsMap().values()) {
+                        if (!"inbound-rtp".equals(st.getType())) continue;
+                        Object delay = st.getMembers().get("jitterBufferDelay"), emitted = st.getMembers().get("jitterBufferEmittedCount");
+                        if (!(delay instanceof Number) || !(emitted instanceof Number)) continue;
+                        double d = ((Number) delay).doubleValue();
+                        long e = ((Number) emitted).longValue();
+                        long ms = e > jbEmitted ? Math.round((d - jbDelay) / (e - jbEmitted) * 1000) : -1;
+                        jbDelay = d;
+                        jbEmitted = e;
+                        System.out.println("jitter_buffer " + id.substring(0, Math.min(8, id.length())) + " ms=" + ms + " concealed=" + st.getMembers().get("concealedSamples"));
+                    }
+                });
+            }
 
             Member(String id) {
                 this.id = id;
                 List<PeerConnection.IceServer> servers = iceServers(iceServers);
                 PeerConnection.RTCConfiguration config = new PeerConnection.RTCConfiguration(servers);
                 config.sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN;
+                // A call, not a stream: after a stall on a mobile network the default buffer (200 packets, 4 s) grew
+                // and stayed, and both sides heard each other 2-3 s late (ANSWER_DELAY.md 8.7).
+                config.audioJitterBufferMaxPackets = JITTER_BUFFER_PACKETS;
+                config.audioJitterBufferFastAccelerate = true;
                 pc = factory.createPeerConnection(config, new PeerConnection.Observer() {
                     // A relay candidate guarantees a path: answer without waiting for the rest of gathering.
                     public void onIceCandidate(IceCandidate c) { if (c.sdp.contains(" typ relay")) gathered.countDown(); }
@@ -870,17 +919,27 @@ public final class BridgeMain {
                 return;
             }
             m.generation = gen;
+            if (gen > 0) m.lastRestart = SystemClock.elapsedRealtime();
             m.gathered = new CountDownLatch(1);
             final Member member = m;
+            // Each step timed: a Huawei gateway answered a phone on mobile data 2.9-4.5 s after the offer reached it,
+            // with gathering itself 82 ms (ANSWER_DELAY.md 8.6).
+            long t0 = SystemClock.elapsedRealtime();
             await(o -> member.pc.setRemoteDescription(o, new SessionDescription(SessionDescription.Type.OFFER, sdp)));
+            long t1 = SystemClock.elapsedRealtime();
             SessionDescription answer = await(o -> member.pc.createAnswer(o, new MediaConstraints()));
+            long t2 = SystemClock.elapsedRealtime();
             await(o -> member.pc.setLocalDescription(o, answer));
             // Candidates are not trickled, so wait for a relay candidate or the end of gathering, at most 1.5 s.
             long started = SystemClock.elapsedRealtime();
             m.gathered.await(1500, TimeUnit.MILLISECONDS);
+            long t3 = SystemClock.elapsedRealtime();
             PortMap.release(m.mappings);
             String local = PortMap.augment(m.pc.getLocalDescription().description, m.mappings);
-            System.out.println("answer " + memberId + " gen=" + gen + " gathered_ms=" + (SystemClock.elapsedRealtime() - started) + " relay=" + local.contains(" typ relay"));
+            long t4 = SystemClock.elapsedRealtime();
+            System.out.println("answer " + memberId + " gen=" + gen + " gathered_ms=" + (t3 - started) + " relay=" + local.contains(" typ relay")
+                + " remote_ms=" + (t1 - t0) + " create_ms=" + (t2 - t1) + " local_ms=" + (started - t2) + " ports_ms=" + (t4 - t3)
+                + " since_received_ms=" + (offerReceivedAt > 0 ? t4 - offerReceivedAt : -1) + " at=" + clock());
             send(new JSONObject().put("type", "answer").put("call_id", callId).put("member", memberId).put("gen", gen).put("sdp", local));
         }
 
@@ -911,14 +970,17 @@ public final class BridgeMain {
         private void watch() {
             int tick = 0;
             while (stop.isEmpty()) {
-                try { Thread.sleep(500); } catch (InterruptedException e) { return; }
+                // Every 200 ms, as QuietHold before the session: at 500 ms Huawei's earpiece stayed up to 0.54 s at
+                // the call volume it reset as the call went off-hook (ANSWER_DELAY.md 8.6).
+                try { Thread.sleep(200); } catch (InterruptedException e) { return; }
                 long now = SystemClock.elapsedRealtime();
                 for (Member m : members.values()) {
                     if (m.ice.equals("CONNECTED") || m.ice.equals("COMPLETED")) m.lastConnected = now;
-                    else if (m.lastConnected > 0 && now - m.lastConnected > RECOVERY_MS) leave(m.id, "ice_lost");
+                    else if (m.lastConnected > 0 && now - m.lastConnected > (m.lastRestart > 0 && now - m.lastRestart < RESTART_RECENT_MS ? RECOVERY_ASKING_MS : RECOVERY_MS)) leave(m.id, "ice_lost");
                 }
                 quiet.enforce();
-                if (++tick % 6 == 0) {
+                if (++tick % 15 == 0) {
+                    for (Member m : members.values()) m.logJitterBuffer();
                     try {
                         android.media.AudioTrack tx = txTrack;
                         String txStats = tx == null ? "none" : "rate=" + tx.getSampleRate() + " head=" + (tx.getPlaybackHeadPosition() & 0xffffffffL)
@@ -1356,12 +1418,18 @@ public final class BridgeMain {
         return track;
     }
 
-    /** Earpiece and speaker at volume 0 and the microphone muted, re-asserted every half second, restored at the end. */
-    static final class Silence {
+    /**
+     * Earpiece and speaker at volume 0 and the microphone muted, re-asserted until the end (QuietHold before the
+     * media, the session's watch after), restored at the end. Each time the volume is found raised again, the log
+     * says so, with the phone's audio mode: the Mate 40 Pro+ was heard in its earpiece before the media (2026-11-13).
+     */
+    static final class Silence implements QuietHold.Silenced {
         private static final int STREAM_VOICE_CALL = 0, DEVICE_EARPIECE = 1, DEVICE_SPEAKER = 2, PUBLIC_MIN = 1;
         private final int normal, max;
-        private int micReasserts;
+        private final long since = SystemClock.elapsedRealtime();
+        private int micReasserts, volumeReasserts;
         private boolean restored;
+        private String lastSeen = "";
         private Silence(int normal, int max) { this.normal = normal; this.max = max; }
 
         static Silence enable() throws Exception {
@@ -1379,12 +1447,22 @@ public final class BridgeMain {
             call("initStreamVolume", new Class<?>[]{int.class, int.class, int.class}, STREAM_VOICE_CALL, 0, s.max);
             s.enforce();
             s.micReasserts = 0;
+            s.volumeReasserts = 0;
+            System.out.println("quiet on normal=" + s.normal + " max=" + s.max);
             return s;
         }
 
-        synchronized void enforce() {
+        public synchronized void enforce() {
             if (restored) return;
             try {
+                // What the phone has now, before it is set again: a change shows here once (the mode with it).
+                int earpiece = volume(DEVICE_EARPIECE), speaker = volume(DEVICE_SPEAKER);
+                String seen = "earpiece=" + earpiece + " speaker=" + speaker + " mode=" + mode() + " mic_muted=" + micMuted();
+                if (!seen.equals(lastSeen)) {
+                    System.out.println("quiet +" + (SystemClock.elapsedRealtime() - since) + "ms " + seen);
+                    lastSeen = seen;
+                }
+                if (earpiece > 0 || speaker > 0) volumeReasserts++;
                 call("setStreamVolumeIndexAS", new Class<?>[]{int.class, int.class, int.class}, STREAM_VOICE_CALL, 0, DEVICE_EARPIECE);
                 call("setStreamVolumeIndexAS", new Class<?>[]{int.class, int.class, int.class}, STREAM_VOICE_CALL, 0, DEVICE_SPEAKER);
                 if (!micMuted()) { micReasserts++; call("muteMicrophone", new Class<?>[]{boolean.class}, true); }
@@ -1392,12 +1470,13 @@ public final class BridgeMain {
         }
 
         String status() {
-            try { return "mic_muted=" + micMuted() + " mic_reasserts=" + micReasserts; } catch (Exception e) { return "mic_state=unknown"; }
+            try { return "mic_muted=" + micMuted() + " mic_reasserts=" + micReasserts + " volume_reasserts=" + volumeReasserts; } catch (Exception e) { return "mic_state=unknown"; }
         }
 
-        synchronized void disable() {
+        public synchronized void disable() {
             if (restored) return;
             restored = true;
+            System.out.println("quiet off after " + (SystemClock.elapsedRealtime() - since) + "ms volume_reasserts=" + volumeReasserts + " mic_reasserts=" + micReasserts);
             try {
                 call("initStreamVolume", new Class<?>[]{int.class, int.class, int.class}, STREAM_VOICE_CALL, PUBLIC_MIN, max);
                 call("setStreamVolumeIndexAS", new Class<?>[]{int.class, int.class, int.class}, STREAM_VOICE_CALL, normal, DEVICE_EARPIECE);
@@ -1405,6 +1484,18 @@ public final class BridgeMain {
                 call("muteMicrophone", new Class<?>[]{boolean.class}, false);
                 new ProcessBuilder("cmd", "media_session", "volume", "--stream", "0", "--set", String.valueOf(normal)).start().waitFor();
             } catch (Exception e) { System.out.println("silence restore failed " + e); }
+        }
+
+        /** The call volume the audio policy applies on that output now (-1 if unreadable). */
+        private static int volume(int device) {
+            try {
+                return (int) Class.forName("android.media.AudioSystem").getMethod("getStreamVolumeIndex", int.class, int.class).invoke(null, STREAM_VOICE_CALL, device);
+            } catch (Exception e) { return -1; }
+        }
+
+        /** The phone's audio mode: 2 in a call, 0 normal, 1 ringing (-1 if unreadable). */
+        private static int mode() {
+            try { return ((AudioManager) context.getSystemService(Context.AUDIO_SERVICE)).getMode(); } catch (Exception e) { return -1; }
         }
 
         private static boolean micMuted() throws Exception {
