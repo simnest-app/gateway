@@ -38,8 +38,8 @@ android {
         applicationId = "app.simnest.gateway"
         minSdk = 29
         targetSdk = 36
-        versionCode = 113
-        versionName = "0.43.8"
+        versionCode = 117
+        versionName = "0.44.1"
         // The Redmi gateway is arm64; WebRTC's native library is large, so ship that one ABI only.
         ndk { abiFilters += "arm64-v8a" }
         buildConfigField("String", "SERVICE_ADDRESS", quoted("address"))
@@ -114,6 +114,8 @@ dependencies {
     implementation(libs.boringssl)
     implementation(libs.tink.android)
     implementation(libs.commons.compress)
+    // Builds the MCP server's self-signed certificate (GATEWAY_MCP.md 14); the same version Kadb already brings in.
+    implementation(libs.bcpkix)
     // sherpa-onnx 1.13.8 (Apache-2.0): voice cloning and transcription on the gateway. Not on Maven: fetched with its
     // checksum by scripts/fetch-deps.sh.
     implementation(files("libs/sherpa-onnx-static-link-onnxruntime-1.13.8.aar"))

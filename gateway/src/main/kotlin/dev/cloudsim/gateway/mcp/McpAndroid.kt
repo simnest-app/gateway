@@ -3,8 +3,6 @@ package dev.cloudsim.gateway.mcp
 import android.content.Context
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
-import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.KeyProperties
 import dev.cloudsim.gateway.adb.ShellLauncher
 import dev.cloudsim.gateway.calls.GatewayStatus
 import dev.cloudsim.gateway.calls.SharingPolicy
@@ -13,6 +11,11 @@ import dev.cloudsim.gateway.records.MissingPermission
 import dev.cloudsim.gateway.records.RecordSource
 import dev.cloudsim.gateway.screening.transcript.Transcripts
 import dev.cloudsim.gateway.sms.SmsStore
+import com.google.crypto.tink.Aead
+import com.google.crypto.tink.KeyTemplates
+import com.google.crypto.tink.RegistryConfiguration
+import com.google.crypto.tink.aead.AeadConfig
+import com.google.crypto.tink.integration.android.AndroidKeysetManager
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -20,16 +23,11 @@ import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.NetworkInterface
 import java.net.ServerSocket
-import java.security.KeyPairGenerator
 import java.security.KeyStore
-import java.security.MessageDigest
-import java.security.spec.ECGenParameterSpec
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
-import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.SSLContext
-import javax.security.auth.x500.X500Principal
 
 /**
  * The MCP server on this phone (GATEWAY_MCP.md): its switches, its grants and log kept in the app's private storage,
@@ -147,25 +145,38 @@ class GatewayMcpData(
     }
 }
 
-/** This phone's own certificate for MCP over the home network; the key is made in and never leaves the Android Keystore (GATEWAY_MCP.md 13). */
+/**
+ * This phone's own certificate for MCP over the home network. The key signs in this process and is stored sealed by
+ * a Keystore key ([McpTlsIdentity] says why it is no longer a Keystore signing key); loaded once per process.
+ */
 object McpTls {
-    private const val ALIAS = "mcp-tls"
+    private const val OLD_ALIAS = "mcp-tls"
+    @Volatile private var identity: McpTlsIdentity? = null
 
-    private fun store(): KeyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }.also { ks ->
-        if (!ks.containsAlias(ALIAS)) KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore").apply {
-            initialize(KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_SIGN)
-                .setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
-                .setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA384, KeyProperties.DIGEST_SHA512, KeyProperties.DIGEST_NONE)
-                .setCertificateSubject(X500Principal("CN=simnest-gateway")).build())
-        }.generateKeyPair()
+    @Synchronized
+    fun identity(context: Context, log: (String) -> Unit = {}): McpTlsIdentity = identity ?: run {
+        val aead = run {
+            AeadConfig.register()
+            AndroidKeysetManager.Builder()
+                .withSharedPref(context, "mcp_tls_keyset", "mcp_tls_keys")
+                .withKeyTemplate(KeyTemplates.get("AES256_GCM"))
+                .withMasterKeyUri("android-keystore://simnest_mcp_tls_master")
+                .build().keysetHandle.getPrimitive(RegistryConfiguration.get(), Aead::class.java)
+        }
+        val sealer = object : McpTlsIdentity.Sealer {
+            override fun seal(plain: ByteArray, ad: ByteArray) = aead.encrypt(plain, ad)
+            override fun open(sealed: ByteArray, ad: ByteArray) = aead.decrypt(sealed, ad)
+        }
+        McpTlsIdentity.loadOrCreate(File(File(context.filesDir, "mcp"), "tls.bin"), sealer, log).also {
+            identity = it
+            // The Keystore key of 0.43.8 and before is no longer used; its certificate is replaced, so is its fingerprint.
+            runCatching { KeyStore.getInstance("AndroidKeyStore").apply { load(null) }.takeIf { ks -> ks.containsAlias(OLD_ALIAS) }?.deleteEntry(OLD_ALIAS) }
+        }
     }
 
-    /** SHA-256 of the certificate, what a client pins instead of trusting any authority. */
-    fun fingerprint(): String = MessageDigest.getInstance("SHA-256").digest(store().getCertificate(ALIAS).encoded).joinToString("") { "%02x".format(it) }
+    fun fingerprint(context: Context): String = identity(context).fingerprint
 
-    fun context(): SSLContext = SSLContext.getInstance("TLSv1.3").apply {
-        init(KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm()).apply { init(store(), null) }.keyManagers, null, null)
-    }
+    fun context(context: Context, log: (String) -> Unit = {}): SSLContext = identity(context, log).sslContext()
 }
 
 /**
@@ -198,7 +209,7 @@ class McpRuntime(private val context: Context, private val data: McpData, privat
             lan?.stop(); lan = null; lanAddress = null
             unregister()
             if (want != null) runCatching {
-                val socket = if (tls) McpTls.context().serverSocketFactory.createServerSocket(Mcp.PORT, 16, want) else ServerSocket(Mcp.PORT, 16, want)
+                val socket = if (tls) McpTls.context(context, log).serverSocketFactory.createServerSocket(Mcp.PORT, 16, want) else ServerSocket(Mcp.PORT, 16, want)
                 lan = McpHttp(socket, server, log).also { it.start() }
                 lanAddress = want.hostAddress
                 lanTls = tls
@@ -206,7 +217,7 @@ class McpRuntime(private val context: Context, private val data: McpData, privat
                 register()
             }.onFailure { log("mcp: could not listen on the home network: ${it.message}") }
         }
-        Mcp.listening = Mcp.Listening(lanAddress, Mcp.PORT, lanTls, runCatching { McpTls.fingerprint() }.getOrDefault(""))
+        Mcp.listening = Mcp.Listening(lanAddress, Mcp.PORT, lanTls, runCatching { McpTls.fingerprint(context) }.getOrDefault(""))
         if (watch == null) watch = watcher.scheduleWithFixedDelay({ runCatching { apply() } }, 30, 30, TimeUnit.SECONDS)
     }
 
@@ -235,7 +246,7 @@ class McpRuntime(private val context: Context, private val data: McpData, privat
                 serviceName = "SimNest gateway"
                 serviceType = "_simnest-mcp._tcp"
                 port = Mcp.PORT
-                setAttribute("fp", McpTls.fingerprint().take(16))
+                setAttribute("fp", McpTls.fingerprint(context).take(16))
             }
             val listener = object : NsdManager.RegistrationListener {
                 override fun onRegistrationFailed(i: NsdServiceInfo, code: Int) {}

@@ -200,7 +200,11 @@ public final class BridgeMain {
                 Session s = session;
                 if (s != null && !s.callId.equals(callId)) stopSession("replaced");
                 try {
-                    if (session == null) session = new Session(callId, m.optJSONObject("ice"), m.optJSONObject("cellular"));
+                    // "ring": the owner's phone connecting while the call still rings (ANSWER_DELAY.md 14), without
+                    // audio until "open". Any other offer comes once the call is answered: the audio opens with it.
+                    boolean ring = m.optBoolean("ring");
+                    if (session == null) session = new Session(callId, m.optJSONObject("ice"), m.optJSONObject("cellular"), ring);
+                    else if (!ring) session.open();
                     // A phone joining a screened call to listen in (SCREENING_ASSISTANT.md 10.3) is not heard until it takes over.
                     if (m.optBoolean("listen")) session.listen(m.optString("member", DEFAULT_MEMBER), true);
                     session.offer(m.optString("member", DEFAULT_MEMBER), m.getInt("gen"), m.getString("sdp"), m.optJSONObject("ice"));
@@ -218,10 +222,18 @@ public final class BridgeMain {
                 // arrives, and keep it silent until then. Sent again when the call goes active: asserted again at once.
                 synchronized (BridgeMain.class) {
                     Session s = session;
-                    if (s != null) s.quiet.enforce();
+                    Silence q = s != null ? s.quiet : null;
+                    if (q != null) q.enforce();
                     else try { pendingQuiet.quiet(Silence::enable); } catch (Exception e) { System.out.println("quiet failed " + e); }
                 }
                 break;
+            case "open": {
+                // The phone that connected while the call rang answered it: its audio starts now (ANSWER_DELAY.md 14).
+                Session s = session;
+                if (s != null && s.callId.equals(callId)) s.open();
+                else System.out.println("open " + callId + ": no media for it (its connection went while it rang)");
+                break;
+            }
             case "leave": {
                 // One phone of a multi-party call is done; the call's media goes on for the others.
                 Session s = session;
@@ -456,7 +468,14 @@ public final class BridgeMain {
         final String callId;
         private AudioSource source;
         private AudioTrack track;
-        private final Silence quiet;
+        /** The earpiece silence; null until the audio opens (a call connected while it rings, ANSWER_DELAY.md 14). */
+        private volatile Silence quiet;
+        /**
+         * Audio runs: false for a phone connected while the call rings, until it answers (open). Until then nothing is
+         * recorded or played (WebRTC's recording and playout are off), the uplink is not opened, and the earpiece is
+         * left to QuietHold.
+         */
+        private volatile boolean live;
         private JSONObject iceServers;
         private final java.util.Map<String, Member> members = new java.util.concurrent.ConcurrentHashMap<>();
         private final ArrayBlockingQueue<short[]> uplink = new ArrayBlockingQueue<>(50);
@@ -523,6 +542,8 @@ public final class BridgeMain {
                 pcs[1] = factory.createPeerConnection(config, loopbackObserver(c -> pcs[0].addIceCandidate(c)));
                 sender = pcs[0];
                 receiver = pcs[1];
+                // The process's recording may have been left off by a call that rang (ANSWER_DELAY.md 14): on.
+                AudioSwitches.open(switched(sender));
                 sender.addTransceiver(track, new RtpTransceiver.RtpTransceiverInit(RtpTransceiver.RtpTransceiverDirection.SEND_ONLY));
                 SessionDescription offer = await(o -> sender.createOffer(o, new MediaConstraints()));
                 await(o -> sender.setLocalDescription(o, offer));
@@ -823,7 +844,7 @@ public final class BridgeMain {
                 // and stayed, and both sides heard each other 2-3 s late (ANSWER_DELAY.md 8.7).
                 config.audioJitterBufferMaxPackets = JITTER_BUFFER_PACKETS;
                 config.audioJitterBufferFastAccelerate = true;
-                pc = factory.createPeerConnection(config, new PeerConnection.Observer() {
+                PeerConnection made = factory.createPeerConnection(config, new PeerConnection.Observer() {
                     // A relay candidate guarantees a path: answer without waiting for the rest of gathering.
                     public void onIceCandidate(IceCandidate c) { if (c.sdp.contains(" typ relay")) gathered.countDown(); }
                     public void onIceGatheringChange(PeerConnection.IceGatheringState s) { if (s == PeerConnection.IceGatheringState.COMPLETE) gathered.countDown(); }
@@ -847,6 +868,8 @@ public final class BridgeMain {
                     public void onDataChannel(DataChannel d) {}
                     public void onRenegotiationNeeded() {}
                 });
+                pc = made;
+                AudioSwitches.join(switched(made), live);
                 // The same downlink track on every phone's connection: WebRTC's capture feeds each sending stream itself.
                 pc.addTrack(track, java.util.Collections.singletonList("call")); // not List.of: Android 11 and later only
                 System.out.println("member " + id + " joined " + callId.substring(0, 8) + " servers=" + servers.size() + " members=" + (members.size() + 1));
@@ -854,15 +877,17 @@ public final class BridgeMain {
 
             void close() {
                 PortMap.release(mappings);
-                try { pc.close(); } catch (Exception ignored) {}
-                try { pc.dispose(); } catch (Exception ignored) {}
+                AudioSwitches.close(switched(pc));
             }
         }
 
-        Session(String callId, JSONObject iceServers, JSONObject cellular) throws Exception {
+        Session(String callId, JSONObject iceServers, JSONObject cellular) throws Exception { this(callId, iceServers, cellular, false); }
+
+        Session(String callId, JSONObject iceServers, JSONObject cellular, boolean ring) throws Exception {
             this.callId = callId;
             this.iceServers = iceServers;
-            quiet = takeQuiet();
+            live = !ring;
+            if (live) quiet = takeQuiet();
             List<NetworkChangeDetector.NetworkInformation> networks = activeNetworks(cellular);
             NetworkMonitor.getInstance().setNetworkChangeDetectorFactory((observer, ctx) -> new NetworkChangeDetector() {
                 public NetworkChangeDetector.ConnectionType getCurrentConnectionType() { return NetworkChangeDetector.ConnectionType.CONNECTION_WIFI; }
@@ -882,9 +907,14 @@ public final class BridgeMain {
                 if (t != null) t.addNear(block, block.length, sinkRate);
                 if (!uplink.offer(block)) { dropped.incrementAndGet(); droppedQueue.incrementAndGet(); }
             });
-            new Thread(this::injectUplink, "uplink").start();
             new Thread(this::watch, "watch").start();
-            System.out.println("session " + callId.substring(0, 8) + " started");
+            System.out.println("session " + callId.substring(0, 8) + " started" + (ring ? " while ringing, no audio" : ""));
+            if (live) startAudio();
+        }
+
+        /** The uplink, and what waited for this call's media: its recording and its notice. */
+        private void startAudio() {
+            new Thread(this::injectUplink, "uplink").start();
             synchronized (BridgeMain.class) {
                 if (callId.equals(pendingRecord)) { pendingRecord = null; record(true); }
                 if (pendingNotice != null) {
@@ -896,6 +926,20 @@ public final class BridgeMain {
         }
 
         /**
+         * The call was answered by the phone connected while it rang (or another offer came once it was answered): the
+         * earpiece silence taken over from QuietHold, recording and playout on, then the uplink, which on HiSilicon
+         * waits for the recording to have run (HISILICON_UPLINK).
+         */
+        synchronized void open() throws Exception {
+            if (live || !stop.isEmpty()) return;
+            quiet = takeQuiet();
+            live = true;
+            for (Member m : members.values()) AudioSwitches.open(switched(m.pc));
+            System.out.println("session " + callId.substring(0, 8) + " audio open members=" + members.size() + " at=" + clock());
+            startAudio();
+        }
+
+        /**
          * Answers each newer offer from a member on its own connection (an ICE restart has a higher generation); older
          * ones are rejected. A new member joins on its first offer, unless the call already has MAX_MEMBERS phones.
          */
@@ -904,6 +948,15 @@ public final class BridgeMain {
             Member m;
             synchronized (this) {
                 m = members.get(memberId);
+                if (m != null && gen == 0 && m.generation >= 0) {
+                    // A new connection from the same phone: the one it made while the call rang went, and it set up
+                    // anew at the answer (ANSWER_DELAY.md 14). The old one is replaced rather than the offer refused.
+                    members.remove(memberId);
+                    mixer.remove(memberId);
+                    m.close();
+                    System.out.println("member " + memberId + " replaced in " + callId.substring(0, 8));
+                    m = null;
+                }
                 if (m == null) {
                     if (members.size() >= MAX_MEMBERS) {
                         send(new JSONObject().put("type", "reject").put("call_id", callId).put("member", memberId).put("gen", gen).put("reason", "full"));
@@ -978,7 +1031,8 @@ public final class BridgeMain {
                     if (m.ice.equals("CONNECTED") || m.ice.equals("COMPLETED")) m.lastConnected = now;
                     else if (m.lastConnected > 0 && now - m.lastConnected > (m.lastRestart > 0 && now - m.lastRestart < RESTART_RECENT_MS ? RECOVERY_ASKING_MS : RECOVERY_MS)) leave(m.id, "ice_lost");
                 }
-                quiet.enforce();
+                Silence q = quiet;
+                if (q != null) q.enforce();
                 if (++tick % 15 == 0) {
                     for (Member m : members.values()) m.logJitterBuffer();
                     try {
@@ -993,7 +1047,7 @@ public final class BridgeMain {
                         send(new JSONObject().put("type", "state").put("call_id", callId).put("ice", ice).put("members", members.size())
                             .put("downlink", capFrames.get() + "/" + capNonzero.get() + "/" + capPeak.get())
                             .put("uplink", sinkFrames.get() + "/" + sinkNonzero.get() + "/" + sinkPeak.get())
-                            .put("injected", injected.get()).put("dropped", dropped.get()).put("route", route).put("silence", quiet.status()));
+                            .put("injected", injected.get()).put("dropped", dropped.get()).put("route", route).put("silence", quiet != null ? quiet.status() : "ringing"));
                     } catch (Exception ignored) {}
                 }
             }
@@ -1142,11 +1196,13 @@ public final class BridgeMain {
             members.clear();
             try { track.dispose(); } catch (Exception ignored) {}
             try { source.dispose(); } catch (Exception ignored) {}
-            quiet.disable();
-            System.out.println("session " + callId.substring(0, 8) + " ended " + reason + " injected=" + injected.get() + " dropped=" + dropped.get()
+            Silence q = quiet;
+            if (q != null) q.disable();
+            System.out.println("session " + callId.substring(0, 8) + " ended " + reason + (live ? "" : " (connected while ringing, never opened)") + " injected=" + injected.get() + " dropped=" + dropped.get()
                 + " downlink=" + capFrames.get() + "/" + capNonzero.get() + "/" + capPeak.get() + " uplink=" + sinkFrames.get() + "/" + sinkNonzero.get() + "/" + sinkPeak.get() + " clipped=" + sinkClipped.get() + "/" + sinkSamples.get());
             try { send(new JSONObject().put("type", "ended").put("call_id", callId).put("reason", reason)); } catch (Exception ignored) {}
-            warmTx();
+            // Never opened: the call may still be ringing, and nothing was written to Telephony TX.
+            if (live) warmTx();
         }
     }
 
@@ -1654,6 +1710,42 @@ public final class BridgeMain {
      * goes out when every phone has given one, or when a phone gives a second before the others (a stalled phone does not
      * hold the rest back). With one phone every block goes out as it comes, as before.
      */
+    /**
+     * WebRTC's recording and playout switches (ANSWER_DELAY.md 14). They belong to the whole process, not to the
+     * connection they are set on: the audio device module records and plays for every connection there is. So every
+     * connection that carries audio sets them as it starts: a phone's at join (off while the call rings, on otherwise),
+     * all of a session's at open, the assistant's on. Closing leaves them alone. Turned back on at close, as up to 0.44.0
+     * (116), they started the recording and playout on the closing connection itself, still there for that moment: a
+     * session connected while it rang and never opened logged "far-end recording started" just before its phone left
+     * (14.11, the Huawei gateway).
+     */
+    static final class AudioSwitches {
+        /** What is set and closed: a PeerConnection (switched), or a test's stand-in. */
+        interface Switched {
+            void audio(boolean on);
+            void close();
+        }
+
+        static void join(Switched c, boolean live) { c.audio(live); }
+
+        static void open(Switched c) { c.audio(true); }
+
+        /** The connection goes; the switches stay as they are for the call's other phones and for what comes next. */
+        static void close(Switched c) {
+            try { c.close(); } catch (Exception ignored) {}
+        }
+    }
+
+    static AudioSwitches.Switched switched(PeerConnection pc) {
+        return new AudioSwitches.Switched() {
+            public void audio(boolean on) { pc.setAudioRecording(on); pc.setAudioPlayout(on); }
+            public void close() {
+                try { pc.close(); } catch (Exception ignored) {}
+                try { pc.dispose(); } catch (Exception ignored) {}
+            }
+        };
+    }
+
     static final class UplinkMixer {
         interface Out { void emit(short[] block); }
         private final Out out;

@@ -112,16 +112,16 @@ class ScreeningRequests(
         val count = p.optInt("count", 0)
         val chunk = unb64(p.optString("chunk"))
         if (!NUMBER.matches(number) || set.length !in 8..64 || count !in 1..MAX_PIECES || index !in 0 until count || chunk == null) {
-            return answer(to, requestId, JSONObject().put("error", "bad_piece"))
+            return answer(to, requestId, refuse("piece $index/$count", number, "bad_piece"))
         }
         uploads.entries.removeIf { now() - it.value.started > UPLOAD_MS }
         val u = uploads.getOrPut(set) { Upload(number, count, now()) }
-        if (u.number != number || u.count != count) return answer(to, requestId, JSONObject().put("error", "bad_piece"))
+        if (u.number != number || u.count != count) return answer(to, requestId, refuse("piece $index/$count", number, "bad_piece"))
         u.pieces[index] = chunk
         if (u.pieces.any { it == null }) return answer(to, requestId, JSONObject().put("have", index))
         uploads.remove(set)
         val bundle = runCatching { JSONObject(u.pieces.fold(ByteArray(0)) { a, b -> a + b!! }.decodeToString()) }.getOrNull()
-            ?: return answer(to, requestId, JSONObject().put("error", "bad_set"))
+            ?: return answer(to, requestId, refuse("set", number, "bad_set"))
         val result = when {
             p.optString("op") == "voice" -> setVoice(bundle)
             bundle.has("texts") -> speak(number, bundle)
@@ -132,25 +132,25 @@ class ScreeningRequests(
 
     /** Decodes and checks every clip, then installs the set; the answer carries its digest, or what was wrong. */
     private fun install(number: String, bundle: JSONObject): JSONObject {
-        val clipsIn = bundle.optJSONObject("clips") ?: return JSONObject().put("error", "bad_set")
+        val clipsIn = bundle.optJSONObject("clips") ?: return refuse("set", number, "bad_set")
         val encoded = LinkedHashMap<String, ByteArray>()
         val decoded = LinkedHashMap<String, ShortArray>()
         for (name in clipsIn.keys()) {
-            if (name !in ScreenAssetStore.NAMES && !ScreenAssetStore.REPLY.matches(name)) return JSONObject().put("error", "bad_clip").put("clip", name)
-            val bytes = unb64(clipsIn.optString(name)) ?: return JSONObject().put("error", "bad_clip").put("clip", name)
-            val pcm = decoder.decode(bytes) ?: return JSONObject().put("error", "undecodable").put("clip", name)
+            if (name !in ScreenAssetStore.NAMES && !ScreenAssetStore.REPLY.matches(name)) return refuse("set", number, "bad_clip", name)
+            val bytes = unb64(clipsIn.optString(name)) ?: return refuse("set", number, "bad_clip", name)
+            val pcm = decoder.decode(bytes) ?: return refuse("set", number, "undecodable", name)
             val limit = if (name == "greeting") GREETING_MAX_SAMPLES else OTHER_MAX_SAMPLES
-            if (pcm.isEmpty() || pcm.size > limit) return JSONObject().put("error", "too_long").put("clip", name)
+            if (pcm.isEmpty() || pcm.size > limit) return refuse("set", number, "too_long", name, ", ${pcm.size} samples")
             encoded[name] = bytes
             decoded[name] = pcm
         }
-        if ("greeting" !in decoded) return JSONObject().put("error", "no_greeting")
+        if ("greeting" !in decoded) return refuse("set", number, "no_greeting")
         fun digests(field: String): List<ByteArray>? = bundle.optJSONArray(field)?.let { a ->
             (0 until a.length()).map { unb64(a.getString(it))?.takeIf { d -> d.size == 16 } ?: return null }
         } ?: emptyList()
-        val allow = digests("allow") ?: return JSONObject().put("error", "bad_list")
-        val contacts = digests("contacts") ?: return JSONObject().put("error", "bad_list")
-        if (allow.size > MAX_ALLOW || contacts.size > MAX_CONTACTS) return JSONObject().put("error", "list_too_long")
+        val allow = digests("allow") ?: return refuse("set", number, "bad_list")
+        val contacts = digests("contacts") ?: return refuse("set", number, "bad_list")
+        if (allow.size > MAX_ALLOW || contacts.size > MAX_CONTACTS) return refuse("set", number, "list_too_long", detail = ", ${allow.size} allowed, ${contacts.size} contact digest(s)")
         val d = store.install(number, encoded, decoded, allow, contacts)
         log("screening set for ${number.take(12)} installed: ${decoded.size} clip(s), ${allow.size} allowed, ${contacts.size} contact digest(s)")
         return JSONObject().put("digest", d)
@@ -160,12 +160,12 @@ class ScreeningRequests(
 
     /** The reference recording and its words: decoded, checked, kept; the answer names the voice. */
     private fun setVoice(bundle: JSONObject): JSONObject {
-        val v = voice ?: return JSONObject().put("error", "unsupported")
-        val audio = unb64(bundle.optString("audio")) ?: return JSONObject().put("error", "bad_voice")
+        val v = voice ?: return refuse("voice", VOICE, "unsupported")
+        val audio = unb64(bundle.optString("audio")) ?: return refuse("voice", VOICE, "bad_voice")
         val text = bundle.optString("text").trim()
-        if (text.length !in 4..200) return JSONObject().put("error", "bad_voice")
-        val pcm = v.decode24k(audio) ?: return JSONObject().put("error", "undecodable")
-        if (pcm.size !in VOICE_MIN_SAMPLES..VOICE_MAX_SAMPLES) return JSONObject().put("error", "voice_length")
+        if (text.length !in 4..200) return refuse("voice", VOICE, "bad_voice", detail = ", ${text.length} characters")
+        val pcm = v.decode24k(audio) ?: return refuse("voice", VOICE, "undecodable")
+        if (pcm.size !in VOICE_MIN_SAMPLES..VOICE_MAX_SAMPLES) return refuse("voice", VOICE, "voice_length", detail = ", ${pcm.size / 24}ms")
         val id = v.profile.set(pcm, text)
         log("owner's voice set: ${pcm.size / 24}ms")
         // The models are needed next: start fetching them now, while the owner listens.
@@ -175,24 +175,25 @@ class ScreeningRequests(
 
     /** A set to speak in the owner's voice: checked, digested, and started; the iPhone follows it with "status". */
     private fun speak(number: String, bundle: JSONObject): JSONObject {
-        val v = voice ?: return JSONObject().put("error", "unsupported")
-        val current = v.profile.get() ?: return JSONObject().put("error", "no_voice")
-        if (bundle.optString("voice") != current.id) return JSONObject().put("error", "voice_changed")
-        val t = bundle.getJSONObject("texts")
+        val v = voice ?: return refuse("lines", number, "unsupported")
+        val current = v.profile.get() ?: return refuse("lines", number, "no_voice")
+        val asked = bundle.optString("voice")
+        if (asked != current.id) return refuse("lines", number, "voice_changed", detail = ", iPhone voice ${asked.take(8)}, gateway voice ${current.id.take(8)}")
+        val t = bundle.optJSONObject("texts") ?: return refuse("lines", number, "bad_set")
         val texts = LinkedHashMap<String, String>()
         for (name in t.keys()) {
-            if (name !in ScreenAssetStore.NAMES && !ScreenAssetStore.REPLY.matches(name)) return JSONObject().put("error", "bad_clip").put("clip", name)
-            val text = t.getString(name).trim()
-            if (text.isEmpty() || text.length > if (name == "greeting") 120 else 60) return JSONObject().put("error", "too_long").put("clip", name)
+            if (name !in ScreenAssetStore.NAMES && !ScreenAssetStore.REPLY.matches(name)) return refuse("lines", number, "bad_clip", name)
+            val text = t.optString(name).trim()
+            if (text.isEmpty() || text.length > if (name == "greeting") 120 else 60) return refuse("lines", number, "too_long", name, ", ${text.length} characters")
             texts[name] = text
         }
-        if ("greeting" !in texts) return JSONObject().put("error", "no_greeting")
+        if ("greeting" !in texts) return refuse("lines", number, "no_greeting")
         fun digests(field: String): List<ByteArray>? = bundle.optJSONArray(field)?.let { a ->
             (0 until a.length()).map { unb64(a.getString(it))?.takeIf { d -> d.size == 16 } ?: return null }
         } ?: emptyList()
-        val allow = digests("allow") ?: return JSONObject().put("error", "bad_list")
-        val contacts = digests("contacts") ?: return JSONObject().put("error", "bad_list")
-        if (allow.size > MAX_ALLOW || contacts.size > MAX_CONTACTS) return JSONObject().put("error", "list_too_long")
+        val allow = digests("allow") ?: return refuse("lines", number, "bad_list")
+        val contacts = digests("contacts") ?: return refuse("lines", number, "bad_list")
+        if (allow.size > MAX_ALLOW || contacts.size > MAX_CONTACTS) return refuse("lines", number, "list_too_long", detail = ", ${allow.size} allowed, ${contacts.size} contact digest(s)")
         val digest = ScreenAssetStore.textDigest(current.id, texts, allow, contacts)
         v.jobs.speakSet(number, current.id, texts) { clips -> store.installSpoken(number, digest, clips, allow, contacts, texts) }
         log("speaking ${texts.size} line(s) for ${number.take(12)}")
@@ -287,6 +288,16 @@ class ScreeningRequests(
         answer(to, requestId, JSONObject().put("voice", id).put("style", style.json()))
     }
 
+    /**
+     * The error answer for what was sent for [number] ([what]: a piece, a set, the lines, the voice), logged with its
+     * code (feedback 4V67TE: refused saves left nothing in the log). Never words, numbers or digests: the number's id
+     * cut to 12 characters as elsewhere, the clip's name and sizes only.
+     */
+    private fun refuse(what: String, number: String, code: String, clip: String? = null, detail: String = ""): JSONObject {
+        log("screening $what for ${number.take(12)} refused: $code${clip?.let { " (clip $it)" } ?: ""}$detail")
+        return JSONObject().put("error", code).also { if (clip != null) it.put("clip", clip) }
+    }
+
     private fun answer(to: String, requestId: String, item: JSONObject) = answerParts(to, requestId, listOf(item))
 
     private fun answerParts(to: String, requestId: String, items: List<JSONObject>) {
@@ -306,6 +317,8 @@ class ScreeningRequests(
         const val FRESH_MS = 2 * 60_000L
         const val UPLOAD_MS = 5 * 60_000L
         const val MAX_PIECES = 32
+        /** The number id the owner's voice recording is sent under. */
+        private const val VOICE = "_voice"
         /** 15 s greeting and 8 s for the rest at 16 kHz, with half a second to spare for the encoder's padding. */
         const val GREETING_MAX_SAMPLES = 16000 * 31 / 2
         const val OTHER_MAX_SAMPLES = 16000 * 17 / 2

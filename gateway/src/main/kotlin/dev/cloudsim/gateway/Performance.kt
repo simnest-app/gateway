@@ -151,10 +151,36 @@ object Performance {
     }
 
     /**
+     * Full speed for call [callId] from its ring to its end (the user's 2026-11-16 decision, ANSWER_DELAY.md 14.4),
+     * without waiting for the cores. Closing it lets go and logs one `call_perf` line: the cores this process had, how
+     * long it was held back, and how busy the processor and the app were, to tell a slow network from a slow phone.
+     */
+    fun callHold(context: Context, callId: String): AutoCloseable {
+        val held = hold(context, CALL, wait = false)
+        val perf = CallPerf(read = { runCatching { File(it).readText() }.getOrNull() })
+        val sampler = Thread({
+            try { while (true) { Thread.sleep(1_000); perf.sample() } } catch (_: InterruptedException) {}
+        }, "call-perf").apply { isDaemon = true; start() }
+        var closed = false
+        return AutoCloseable {
+            synchronized(perf) { if (closed) return@AutoCloseable; closed = true }
+            sampler.interrupt()
+            held.close()
+            Log.i(TAG, perf.line(callId.take(8)))
+        }
+    }
+
+    const val CALL = "call"
+
+    /**
      * The page over whatever is on screen, lock screen included. First the plain way; where the system keeps an app
      * from bringing up a screen by itself, through this phone's own debugging, as the audio bridge is started.
      */
     private fun show(context: Context, reason: String) {
+        // During a call nothing may cover the call screen (ANSWER_DELAY.md 14.4): as the default phone app the
+        // gateway's own call screen is brought up instead, which puts this app in front just the same; otherwise the
+        // system's call screen is in front and stays there.
+        if (CALL in gate.reasons()) return showCall(context)
         val intent = Intent(context, PerformanceActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         runCatching { context.startActivity(intent) }.onFailure { Log.i(TAG, "full speed: the page could not be shown directly: ${it.javaClass.simpleName}") }
         Thread({
@@ -170,10 +196,98 @@ object Performance {
         }, "performance-front").apply { isDaemon = true; start() }
     }
 
+    @Volatile private var toldNoScreen = 0L
+
+    private fun showCall(context: Context) {
+        if (!dev.cloudsim.gateway.calls.CallHub.isDefault(context)) {
+            // Asked again every few seconds while held back: said once a minute.
+            if (System.currentTimeMillis() - toldNoScreen > 60_000) {
+                toldNoScreen = System.currentTimeMillis()
+                Log.i(TAG, "full speed for a call: the system's call screen is in front, nothing shown over it")
+            }
+            return
+        }
+        runCatching { context.startActivity(Intent(context, dev.cloudsim.gateway.calls.InCallActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            .onFailure { Log.i(TAG, "full speed: the call screen could not be shown directly: ${it.javaClass.simpleName}") }
+        // The call screen shows over the lock screen and turns it on itself; where the screen stays off, it is woken.
+        Thread({
+            Thread.sleep(1_500)
+            if (!limited() || CALL !in gate.reasons()) return@Thread
+            runCatching { runBlocking { withTimeout(8_000) { LocalAdb(context).shell("input keyevent KEYCODE_WAKEUP") } } }
+                .onFailure { Log.i(TAG, "full speed: could not wake the screen: ${it.message}") }
+        }, "performance-front").apply { isDaemon = true; start() }
+    }
+
     fun text(reason: String): String = when (reason) {
         "speech" -> L.t("正在用主人的声音合成要说的话")
         "transcribe" -> L.t("正在把对方说的话转成文字")
         else -> L.t("正在处理")
+    }
+}
+
+/**
+ * How one call went for the processor (ANSWER_DELAY.md 14.4): sampled every second from the ring to the end, logged
+ * as one line. The cores this process may use (`Cpus_allowed_list`), how long it had fewer than all, the share of time
+ * the whole processor was busy (/proc/stat) and the share this app took (/proc/self/stat, all cores counted as one).
+ * The audio bridge is a process of its own and not in the app's share. [read] gives a file's text, null if unreadable.
+ */
+class CallPerf(private val read: (String) -> String?, private val now: () -> Long = System::currentTimeMillis) {
+    private val startedAt = now()
+    private val all = read("/sys/devices/system/cpu/possible")?.let(PerformanceGate::count) ?: 0
+    private val firstCores = cores()
+    private var minCores = firstCores
+    private var lastCores = firstCores
+    private var limitedMs = 0L
+    private var lastSample = startedAt
+    private val cpuStart = read("/proc/stat")?.let(::cpu)
+    private val appStart = read("/proc/self/stat")?.let(::appTicks)
+
+    private fun cores(): Int = read("/proc/self/status")?.lineSequence()?.firstOrNull { it.startsWith("Cpus_allowed_list:") }
+        ?.substringAfter(':')?.let(PerformanceGate::count) ?: 0
+
+    @Synchronized fun sample() {
+        val c = cores()
+        val t = now()
+        if (lastCores in 1 until all) limitedMs += t - lastSample
+        lastSample = t
+        lastCores = c
+        if (c in 1 until minCores) minCores = c
+    }
+
+    @Synchronized fun line(call: String): String {
+        sample()
+        val ms = now() - startedAt
+        val cpuEnd = read("/proc/stat")?.let(::cpu)
+        val busy = if (cpuStart != null && cpuEnd != null) busyPercent(cpuStart, cpuEnd) else null
+        val appEnd = read("/proc/self/stat")?.let(::appTicks)
+        val total = if (cpuStart != null && cpuEnd != null) cpuEnd.second - cpuStart.second else 0L
+        // The app's ticks against the whole processor's, as a share of one core's time: total ticks / cores.
+        val app = if (appStart != null && appEnd != null && total > 0 && all > 0) (appEnd - appStart) * 100.0 * all / total else null
+        return "call_perf call=$call ms=$ms cores=$firstCores/$minCores/$lastCores of $all limited_ms=$limitedMs" +
+            " cpu_busy=${busy?.let { "%.0f%%".format(java.util.Locale.ROOT, it) } ?: "?"}" +
+            " app_cpu=${app?.let { "%.0f%%".format(java.util.Locale.ROOT, it) } ?: "?"}"
+    }
+
+    companion object {
+        /** From /proc/stat's first line: (busy ticks, all ticks). Idle and iowait count as not busy. */
+        fun cpu(stat: String): Pair<Long, Long>? {
+            val f = stat.lineSequence().firstOrNull { it.startsWith("cpu ") }?.trim()?.split(Regex("\\s+"))?.drop(1)?.mapNotNull { it.toLongOrNull() } ?: return null
+            if (f.size < 4) return null
+            val total = f.take(8).sum()
+            val idle = f[3] + (f.getOrNull(4) ?: 0)
+            return (total - idle) to total
+        }
+
+        fun busyPercent(a: Pair<Long, Long>, b: Pair<Long, Long>): Double? {
+            val total = b.second - a.second
+            return if (total <= 0) null else (b.first - a.first) * 100.0 / total
+        }
+
+        /** utime + stime of this process from /proc/self/stat (fields 14 and 15; the name in parentheses may hold spaces). */
+        fun appTicks(stat: String): Long? {
+            val rest = stat.substringAfterLast(')').trim().split(' ')
+            return (rest.getOrNull(11)?.toLongOrNull() ?: return null) + (rest.getOrNull(12)?.toLongOrNull() ?: return null)
+        }
     }
 }
 

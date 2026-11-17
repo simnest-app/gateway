@@ -214,8 +214,78 @@ class ScreeningRequestsTest {
 
     @Test
     fun aGreetingTooLongIsRefused() {
+        val logs = mutableListOf<String>()
+        val requests = ScreeningRequests(client, RequestsSealer(), { owner }, store, { key }, { b -> ShortArray(b.size * 1600) }, log = { logs += it })
         val bundle = JSONObject().put("clips", JSONObject().put("greeting", b64(ByteArray(200)))).toString().toByteArray()
-        send(JSONObject().put("op", "asset").put("number", "sim1").put("set", "set-00000002").put("index", 0).put("count", 1).put("chunk", b64(bundle)))
+        sendTo(requests, JSONObject().put("op", "asset").put("number", "sim1").put("set", "set-00000002").put("index", 0).put("count", 1).put("chunk", b64(bundle)))
         assertEquals("too_long", answer().getString("error"))
+        assertEquals("screening set for sim1 refused: too_long (clip greeting), 320000 samples", logs.last())
+    }
+
+    /**
+     * Feedback 4V67TE: saves refused by the gateway left nothing in its log. Every refusal is now logged with its code
+     * and the number's id cut to 12 characters; a voice that changed names both voices' first 8 characters. No words.
+     */
+    @Test
+    fun refusalsAreLogged() {
+        val logs = mutableListOf<String>()
+        val models = dev.cloudsim.gateway.screening.voice.VoiceModels(tmp.newFolder("models"), null)
+        java.io.File(models.zipvoice.apply { mkdirs() }, "encoder.int8.onnx").writeText("x")
+        java.io.File(models.zipvoice, "decoder.int8.onnx").writeText("x")
+        java.io.File(models.zipvoice, "tokens.txt").writeText("x")
+        models.vocoder.writeText("x")
+        models.denoiser.writeText("x")
+        val profile = dev.cloudsim.gateway.screening.voice.VoiceProfile(tmp.newFolder("voice"))
+        val jobs = dev.cloudsim.gateway.screening.voice.SpeechJobs(models, profile, { _, _, _, _, _ -> ShortArray(1600) }, tmp.newFolder("cache"), { false })
+        var recording = ShortArray(24000 * 5)
+        val requests = ScreeningRequests(client, RequestsSealer(), { owner }, store, { key }, { b -> ShortArray(b.size * 1600) }, log = { logs += it },
+            voice = ScreeningRequests.VoiceSetup(profile, jobs, models) { recording })
+        val number = "sim1-abcdefghijklmnop"
+        fun lines(set: String, voice: String, greeting: String = "您好") {
+            val bundle = JSONObject().put("texts", JSONObject().put("greeting", greeting)).put("voice", voice).toString().toByteArray()
+            sendTo(requests, JSONObject().put("op", "asset").put("number", number).put("set", set).put("index", 0).put("count", 1).put("chunk", b64(bundle)))
+        }
+        fun voice(set: String) {
+            val bundle = JSONObject().put("audio", b64(ByteArray(10))).put("text", "您好，我是机主的接听助手。").toString().toByteArray()
+            sendTo(requests, JSONObject().put("op", "voice").put("number", "_voice").put("set", set).put("index", 0).put("count", 1).put("chunk", b64(bundle)))
+        }
+
+        // No voice on the gateway yet.
+        lines("set-00000020", "0123456789abcdef")
+        assertEquals("no_voice", answer().getString("error"))
+        assertEquals("screening lines for sim1-abcdefg refused: no_voice", logs.last())
+
+        // A recording too short.
+        recording = ShortArray(24000)
+        voice("voice-00000021")
+        assertEquals("voice_length", answer().getString("error"))
+        assertEquals("screening voice for _voice refused: voice_length, 1000ms", logs.last())
+
+        // The iPhone's voice is not the gateway's.
+        recording = ShortArray(24000 * 5)
+        voice("voice-00000022")
+        val id = answer().getString("voice")
+        lines("set-00000023", "fedcba9876543210")
+        assertEquals("voice_changed", answer().getString("error"))
+        assertEquals("screening lines for sim1-abcdefg refused: voice_changed, iPhone voice fedcba98, gateway voice ${id.take(8)}", logs.last())
+
+        // A line too long: its name and length, never its words.
+        val long = "请".repeat(121)
+        lines("set-00000024", id, long)
+        assertEquals("too_long", answer().getString("error"))
+        assertEquals("greeting", answer().getString("clip"))
+        assertEquals("screening lines for sim1-abcdefg refused: too_long (clip greeting), 121 characters", logs.last())
+        assertTrue(logs.none { "请" in it || "您好" in it })
+
+        // A piece that does not fit.
+        sendTo(requests, JSONObject().put("op", "asset").put("number", number).put("set", "set-00000025").put("index", 3).put("count", 2).put("chunk", b64(ByteArray(4))))
+        assertEquals("bad_piece", answer().getString("error"))
+        assertEquals("screening piece 3/2 for sim1-abcdefg refused: bad_piece", logs.last())
+    }
+
+    private fun sendTo(requests: ScreeningRequests, payload: JSONObject) {
+        val id = "screening-${n++}-0000"
+        requests.onRequest(JSONObject().put("device_id", owner).put("request_id", id).put("public_key", b64(ownerKey.publicKey))
+            .put("envelope", JSONObject().put("kind", "screening").put("signer", b64(ownerKey.publicKey)).put("plain", payload.put("request_id", id).toString()).toString()))
     }
 }

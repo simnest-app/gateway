@@ -16,6 +16,8 @@ org-json = "20260814"
 tink = "1.24.0"
 # tar.bz2 of the voice models downloaded by the gateway (SCREENING_ASSISTANT.md 12.2), Apache-2.0.
 commons-compress = "1.27.1"
+# The MCP certificate (GATEWAY_MCP.md 14); already in the APK through Kadb at this version, MIT-style licence.
+bouncycastle = "1.86"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
@@ -30,6 +32,7 @@ kadb = { module = "com.flyfishxu:kadb", version.ref = "kadb" }
 boringssl = { module = "io.github.vvb2060.ndk:boringssl", version.ref = "boringssl" }
 org-json = { module = "org.json:json", version.ref = "org-json" }
 tink-android = { module = "com.google.crypto.tink:tink-android", version.ref = "tink" }
+bcpkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
 commons-compress = { module = "org.apache.commons:commons-compress", version.ref = "commons-compress" }
 
 [plugins]

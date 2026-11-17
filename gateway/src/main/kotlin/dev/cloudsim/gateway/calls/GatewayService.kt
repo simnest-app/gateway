@@ -254,7 +254,7 @@ class GatewayService : Service() {
                 override fun started(callId: String, numberId: String?, peer: String?, outgoing: Boolean, assisted: Boolean) =
                     recWorker.execute { runCatching { keepExisting() }; recorder.started(callId, numberId, peer, outgoing, assisted) }
                 override fun ended(callId: String) = recWorker.execute { recorder.ended(callId) }
-            }, screener = screener)
+            }, screener = screener, fullSpeed = { id -> dev.cloudsim.gateway.Performance.callHold(this, id) })
         recordings = dev.cloudsim.gateway.recording.RecordingRelay(client, sealer, owner, recorder, recordingSettings, { numbers.current().map { it.numberId } },
             { relay.participants }, { relay.busy }, free, { cmd -> bridge.send(cmd) }, lease::valid, log = { Log.i(TAG, it) },
             rights = { device, number -> policy?.members?.firstOrNull { it.deviceId == device }?.let { m -> if (number != null) m.on(number).rec else m.rec } ?: RecRights() })

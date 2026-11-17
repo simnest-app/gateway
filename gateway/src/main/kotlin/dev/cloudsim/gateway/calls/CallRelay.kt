@@ -84,6 +84,11 @@ class CallRelay(
      * the owner's own relay (RELAY_SPLIT.md 17); as handed out when the gateway has no such choice.
      */
     private val relays: (JSONObject?) -> JSONObject? = { it },
+    /**
+     * Holds the processor at full speed for call [callId] from its ring (or a phone's dial request) to its end (the
+     * user's 2026-11-16 decision, ANSWER_DELAY.md 14.4, 14.10); closing it lets go and logs the call's cores and load.
+     */
+    private val fullSpeed: (callId: String) -> AutoCloseable = { AutoCloseable {} },
 ) {
     private enum class Phase { IDLE, RINGING, DIALING, ACTIVE, EMERGENCY }
 
@@ -99,6 +104,27 @@ class CallRelay(
     /** Whether the service was asked for relays this call, when an offer came without them. */
     private var iceAsked = false
     private var bridgeStarted = false
+    /** The full speed held for the current relayed call, incoming or dialed for a phone; see [fullSpeed]. */
+    private var speed: AutoCloseable? = null
+    /**
+     * The owner's phone connected with the bridge while the call rings, without audio (ANSWER_DELAY.md 14): its audio
+     * opens if it answers; any other end of the ringing closes the connection.
+     */
+    private var ringMember: String? = null
+
+    private fun letGoOfSpeed() {
+        val s = speed ?: return
+        speed = null
+        runCatching { s.close() }.onFailure { log("full speed: ${it.javaClass.simpleName}") }
+    }
+
+    /** The owner's connection made while it rang is no longer wanted: the bridge closes it. */
+    private fun dropRingMember(reason: String) {
+        val m = ringMember ?: return
+        ringMember = null
+        bridge.send(JSONObject().put("type", "leave").put("call_id", callId).put("member", m).put("reason", reason))
+        log("connection made while ringing with ${m.take(8)} closed: $reason")
+    }
 
     // Ringing of the current call: the policy's stages frozen at the start, which devices were offered, confirmed
     // ringing or declined, and the timers of the current stage.
@@ -192,7 +218,7 @@ class CallRelay(
         val targets = stages.getOrNull(index) ?: return
         val added = targets.filter { offered.add(it) }
         if (index > 0 && added.isNotEmpty()) {
-            report { client.call("POST", "/v1/calls/$callId/offer", JSONObject().put("targets", JSONArray(added)).put("sealed", sealCaller(added))) }
+            report { client.call("POST", "/v1/calls/$callId/offer", JSONObject().put("targets", JSONArray(added)).put("sealed", sealCaller(added, ringMedia = true))) }
             log("stage ${index + 1}: offered ${added.map { it.take(8) }}")
         }
         if (!timed()) return
@@ -237,15 +263,26 @@ class CallRelay(
 
     private fun withdraw(devices: List<String>, reason: String) {
         if (devices.isEmpty()) return
+        ringMember?.let { if (it in devices) dropRingMember(reason) }
         report { client.call("POST", "/v1/calls/$callId/withdraw", JSONObject().put("targets", JSONArray(devices)).put("reason", reason)) }
     }
 
-    /** The caller's number sealed for each of [devices] that has a recipient key; the service only passes it along. */
-    private fun sealCaller(devices: List<String>): JSONObject {
+    /**
+     * The caller's number sealed for each of [devices] that has a recipient key; the service only passes it along.
+     * [ringMedia]: a ringing stage; the owner's phone is told it may connect while it rings (ANSWER_DELAY.md 14), which
+     * no other phone is, and the service cannot add, as it cannot read this.
+     */
+    private fun sealCaller(devices: List<String>, ringMedia: Boolean = false): JSONObject {
         val out = JSONObject()
-        // A run of calls from the same number that still went to the assistant: the owner's notice says which call it is.
-        val plain = JSONObject().put("number", callerNumber ?: "").apply { if (callerRepeat > 1) put("repeat", callerRepeat) }.toString().toByteArray()
-        for (d in devices) runCatching { sealer.seal("caller", d, callId!!, plain) }.getOrNull()?.let { out.put(d, it.toString()) }
+        val owner = pairedPhone()
+        for (d in devices) {
+            // A run of calls from the same number that still went to the assistant: the owner's notice says which call it is.
+            val plain = JSONObject().put("number", callerNumber ?: "").apply {
+                if (callerRepeat > 1) put("repeat", callerRepeat)
+                if (ringMedia && d == owner) put("ring_media", 1)
+            }.toString().toByteArray()
+            runCatching { sealer.seal("caller", d, callId!!, plain) }.getOrNull()?.let { out.put(d, it.toString()) }
+        }
         return out
     }
 
@@ -317,6 +354,9 @@ class CallRelay(
                 numberId = telephony.ringingNumber()
                 frozen = current()
                 stages = frozen?.stages() ?: emptyList()
+                // Full speed from the ring to the end, whoever answers (ANSWER_DELAY.md 14.4); not for a call left
+                // to this phone alone (below), and never for an emergency call (above).
+                if (remote()) speed = runCatching { fullSpeed(callId!!) }.onFailure { log("full speed: ${it.javaClass.simpleName}") }.getOrNull()
                 if (!remote()) {
                     // Remote access paused: the Redmi rings as an ordinary phone, nobody else is told.
                     exhausted = true
@@ -357,7 +397,7 @@ class CallRelay(
                 }
                 val first = stages.firstOrNull() ?: emptyList()
                 offered += first
-                reported = report { client.call("POST", "/v1/calls", JSONObject().put("call_id", callId).put("number_id", numberId ?: "").put("targets", JSONArray(first)).put("sealed", sealCaller(first))) }
+                reported = report { client.call("POST", "/v1/calls", JSONObject().put("call_id", callId).put("number_id", numberId ?: "").put("targets", JSONArray(first)).put("sealed", sealCaller(first, ringMedia = true))) }
                 log("incoming call ${callId!!.take(8)} on ${numberId?.take(12) ?: "the default number"} reported=$reported mode=${frozen?.mode} stage 1: ${first.map { it.take(8) }}")
                 if (reported) startStage(0)
                 if (decision?.mode == dev.cloudsim.gateway.screening.ScreenSettings.AFTER_RING) {
@@ -390,6 +430,15 @@ class CallRelay(
                 val by = answering ?: LOCAL
                 answeredBy = by
                 if (by != LOCAL) quietAgain()
+                // The owner's connection made while it rang: its audio opens now if it answered, else it goes first,
+                // before the assistant or another phone takes the bridge (ANSWER_DELAY.md 14).
+                if (ringMember == by) {
+                    ringMember = null
+                    bridgeStarted = bridge.send(JSONObject().put("type", "open").put("call_id", callId).put("member", by)) || bridgeStarted
+                    log("connection made while ringing with ${by.take(8)}: audio open")
+                } else dropRingMember("answered_elsewhere")
+                // Answered on this phone itself: its audio does not pass the gateway, nothing to hold full speed for.
+                if (by == LOCAL) letGoOfSpeed()
                 screenTimer?.invoke()
                 screenTimer = null
                 if (by == ASSISTANT) return startAssistant()
@@ -471,6 +520,8 @@ class CallRelay(
         ice = null
         iceAsked = false
         bridgeStarted = false
+        ringMember = null
+        letGoOfSpeed()
         cancelTimers()
         frozen = null
         stages = emptyList()
@@ -549,6 +600,7 @@ class CallRelay(
                 val device = data.optString("device_id")
                 if (device in offered && declined.add(device)) {
                     log("declined on ${device.take(8)}")
+                    if (device == ringMember) dropRingMember("declined")
                     // The whole stage said no: move on early. Devices carried over from earlier stages count too.
                     if (offered.all { it in declined }) nextStage()
                 }
@@ -639,6 +691,9 @@ class CallRelay(
             return
         }
         log("dialing for ${from.take(8)}")
+        // Full speed from the dial request to the end, as for an incoming call from its ring (the user's 2026-11-16
+        // addition: a dialed call the same way, ANSWER_DELAY.md 14.10).
+        speed = runCatching { fullSpeed(id) }.onFailure { log("full speed: ${it.javaClass.simpleName}") }.getOrNull()
         timers += scheduler.after(DIAL_MS) {
             if (callId == id && phase == Phase.DIALING) {
                 log("dialed call never went off-hook")
@@ -657,8 +712,11 @@ class CallRelay(
         val sdp = data.optString("sdp")
         // The answerer of an incoming call, or the phone that dialed an outgoing one; either must still be allowed.
         val allowed = pairedPhone()?.let { owner -> current()?.let { it.answerers(owner) + it.dialers(owner) } } ?: emptyList()
-        val trusted = phase == Phase.ACTIVE && from in inCall() && from in allowed && key != null && Protocol.deviceId(key) == from &&
-            Protocol.verify(key, Protocol.mediaMessage(callId!!, "offer", gen, sdp), unb64(data.optString("signature")))
+        val signed = key != null && Protocol.deviceId(key) == from && Protocol.verify(key, Protocol.mediaMessage(callId!!, "offer", gen, sdp), unb64(data.optString("signature")))
+        // While it rings, only the owner's phone, rung for this call and still allowed to answer it, and before anyone
+        // else's answer is under way: connected without audio until it answers (ANSWER_DELAY.md 14).
+        val ring = phase == Phase.RINGING && signed && from == pairedPhone() && mayAnswer(from) && !directPending && (answering == null || answering == from)
+        val trusted = ring || (phase == Phase.ACTIVE && from in inCall() && from in allowed && signed)
         if (!trusted) {
             log("media offer refused: not signed by an allowed phone in the call")
             return
@@ -672,7 +730,14 @@ class CallRelay(
             ice = RelayCandidates.fetch(client, log)
         }
         // Each phone is its own member of the bridge's call, named by its device ID.
-        val sent = bridge.send(JSONObject().put("type", "offer").put("call_id", callId).put("member", from).put("gen", gen).put("sdp", sdp).put("ice", relays(ice)))
+        val message = JSONObject().put("type", "offer").put("call_id", callId).put("member", from).put("gen", gen).put("sdp", sdp).put("ice", relays(ice))
+        if (ring) message.put("ring", true)
+        val sent = bridge.send(message)
+        if (ring) {
+            if (sent) ringMember = from
+            log("connecting with ${from.take(8)} while it rings gen=$gen${if (sent) "" else ": audio bridge not running"}")
+            return
+        }
         bridgeStarted = bridgeStarted || sent
         if (!sent) log("audio bridge not running; the call has no audio")
     }
@@ -809,7 +874,7 @@ class CallRelay(
     fun onBridge(message: JSONObject) {
         val id = message.optString("call_id")
         when (message.optString("type")) {
-            "answer" -> if (id == callId && phase == Phase.ACTIVE) {
+            "answer" -> if (id == callId && (phase == Phase.ACTIVE || phase == Phase.RINGING && message.optString("member") == ringMember && ringMember != null)) {
                 val gen = message.getInt("gen")
                 val sdp = message.getString("sdp")
                 val to = message.optString("member").takeIf { it.isNotEmpty() && it != "phone" }
@@ -823,7 +888,11 @@ class CallRelay(
             }
             "member_connected" -> if (id == callId && phase == Phase.ACTIVE) connected(message.optString("member"))
             // One phone's media is gone (it dropped and did not come back); the others carry on.
-            "member_ended" -> if (id == callId && phase == Phase.ACTIVE) {
+            "member_ended" -> if (id == callId && phase == Phase.RINGING && message.optString("member") == ringMember) {
+                // Its connection made while ringing went (lost, or failed): the answer sets up anew, as before.
+                ringMember = null
+                log("connection made while ringing ended: ${message.optString("reason")}")
+            } else if (id == callId && phase == Phase.ACTIVE) {
                 val member = message.optString("member")
                 if (member in inCall()) dropPhone(member, message.optString("reason").ifEmpty { "dropped" }, bridgeKnows = true)
             }

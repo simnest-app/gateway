@@ -22,7 +22,7 @@ normally sits under those names is used.
 | Kotlin standard library and coroutines | 2.4.21 | Apache-2.0 |
 | stream-webrtc-android (GetStream), a build of WebRTC | 1.3.10 | Apache-2.0; WebRTC itself is under a BSD-style licence |
 | Kadb | 2.1.5 | Apache-2.0 |
-| Bouncy Castle (bcprov, bcpkix, bcutil), through Kadb | 1.86 | Bouncy Castle Licence (MIT-style) |
+| Bouncy Castle (bcprov, bcpkix, bcutil), through Kadb and for the MCP certificate | 1.86 | Bouncy Castle Licence (MIT-style) |
 | Okio, through Kadb | 3.18.2 | Apache-2.0 |
 | BoringSSL prebuilt (`io.github.vvb2060.ndk:boringssl`) | 20251124 | Apache-2.0 |
 | Tink (`tink-android`) and what it brings (gson, error_prone_annotations, annotation-jvm, jsr305) | 1.24.0 | Apache-2.0; jsr305 is BSD-3-Clause |
