@@ -60,7 +60,7 @@ private fun homeFacts(context: android.content.Context): HomeFacts {
     val lines = GatewayStatus.shown(GatewayService.liveNumbers?.let { runCatching(it).getOrNull() }.orEmpty()).map { n ->
         val (state, signal) = GatewayStatus.line(context, n)
         val text = when (state) {
-            "in_service" -> L.t("有服务") + (signal?.let { L.t("，信号 %1\$s/4", it) } ?: "")
+            "in_service" -> L.t("有服务") + (signal?.let { g -> L.t("，信号 %1\$s/4", g.bars) + g.detail().let { if (it.isEmpty()) "" else " · $it" } } ?: "")
             "no_sim" -> L.t("没插卡，已停用")
             "no_service" -> L.t("无服务")
             "emergency_only" -> L.t("只能拨紧急电话（卡可能停机或欠费）")

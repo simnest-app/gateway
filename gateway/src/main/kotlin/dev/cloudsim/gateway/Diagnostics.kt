@@ -60,6 +60,7 @@ object Diagnostics {
     /** What one upload may carry once unpacked; the service takes up to 4 MB. */
     private const val UPLOAD_CHARS = 3_600_000
     private const val BRIDGE_BYTES = 512 * 1024
+    private const val SIGNAL_LINES = 800
 
     /** Raw deflate, as the service unpacks it. */
     fun pack(text: String): ByteArray {
@@ -113,7 +114,9 @@ object Diagnostics {
     fun send(context: Context, note: String): String {
         // The gateway's last self-test, when there is one: what it found of itself, next to what it logged.
         val test = dev.cloudsim.gateway.selftest.SelfTests.last(context)?.let { "=== self-test at ${java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(it.atMs))} ===\n" + it.text() + "\n" } ?: ""
-        val text = mask(facts(context) + "\n" + test + log(context))
+        // Each card's signal over about the last day (SIGNAL_BARS.md 5), kept apart from the log so a busy ring keeps it.
+        val signal = dev.cloudsim.gateway.calls.SignalLog(context).tail(SIGNAL_LINES).takeIf { it.isNotEmpty() }?.let { "=== signal history ===\n$it\n" } ?: ""
+        val text = mask(facts(context) + "\n" + test + signal + log(context))
         val body = JSONObject()
             .put("app", "gateway")
             .put("version", BuildInfo.summary())

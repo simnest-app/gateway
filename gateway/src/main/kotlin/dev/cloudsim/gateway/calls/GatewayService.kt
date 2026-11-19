@@ -70,6 +70,8 @@ class GatewayService : Service() {
     private val relayChecker = Executors.newSingleThreadScheduledExecutor()
     /** Call recordings (RECORDING_V7.md): encoding and writing on their own thread. */
     private val recWorker = Executors.newSingleThreadScheduledExecutor()
+    // Each card's signal read once a minute and recorded (SIGNAL_BARS.md 5); its own thread, so a slow read holds up nothing.
+    private val signalWatch = Executors.newSingleThreadScheduledExecutor()
     /** Settles, once, which numbers were here before the recording notice (RECORDING_NOTICE.md 5). */
     private var noticeMigration: () -> Unit = {}
     private lateinit var recorder: dev.cloudsim.gateway.recording.Recorder
@@ -349,6 +351,15 @@ class GatewayService : Service() {
         watchPhoneState()
         poller.execute { poll(client) }
         supervisor.scheduleWithFixedDelay({ superviseBridge(connection) }, 3, 30, TimeUnit.SECONDS)
+        val signalLog = SignalLog(this)
+        val signals = SignalHistory(System::currentTimeMillis, { line -> Log.i(TAG, line); signalLog.append(line) })
+        signalWatch.scheduleWithFixedDelay({
+            runCatching {
+                val active = numbers.current().filter { it.active }
+                signals.keepOnly(active.map { it.slot + 1 }.toSet())
+                active.forEach { n -> val (state, signal) = GatewayStatus.line(this, n); signals.observe(n.slot + 1, state, signal) }
+            }.onFailure { Log.w(TAG, "signal not read: ${it.javaClass.simpleName}") }
+        }, 20, 60, TimeUnit.SECONDS)
         // Confirm the latest permissions every minute; the long poll staying up does not count (REVOKE_LEASE_5.md).
         renewer.scheduleWithFixedDelay({ keeper.refresh() }, Lease.RENEW_MS, Lease.RENEW_MS, TimeUnit.MILLISECONDS)
         renewer.scheduleWithFixedDelay({
@@ -383,6 +394,7 @@ class GatewayService : Service() {
         supervisor.shutdownNow()
         renewer.shutdownNow()
         relayChecker.shutdownNow()
+        signalWatch.shutdownNow()
         probeWorker.shutdownNow()
         // Last, so a recording in progress is saved before the service goes.
         if (::relay.isInitialized && ::recorder.isInitialized) relay.currentCall?.let { id -> runCatching { recWorker.execute { recorder.ended(id) } } }

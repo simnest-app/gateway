@@ -84,7 +84,7 @@ class SelfTestRunner(private val context: Context) {
         step(L.t("SIM 卡")) {
             listOf(Judge.lines(GatewayService.liveNumbers?.invoke()?.let(GatewayStatus::shown)?.map { n ->
                 val (state, signal) = GatewayStatus.line(context, n)
-                LineFacts(n.slot + 1, state, signal)
+                LineFacts(n.slot + 1, state, signal?.bars, signal?.detail()?.ifEmpty { null })
             }))
         }
         step(L.t("后台保活和权限")) {

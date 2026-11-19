@@ -40,7 +40,13 @@ object GatewayStatus {
             val line = JSONObject().put("number_id", n.numberId).put("slot", n.slot + 1)
             val (state, signal) = line(context, n)
             line.put("state", state)
-            signal?.let { line.put("signal", it) }
+            signal?.let { g ->
+                line.put("signal", g.bars)
+                // Optional (SIGNAL_BARS.md 4): what the bars were worked out from; an iPhone that knows none of them ignores them.
+                g.rat.label.takeIf { it.isNotEmpty() }?.let { line.put("rat", it) }
+                g.dbm?.let { line.put("dbm", it) }
+                g.sinr?.let { line.put("sinr", it) }
+            }
             lines.put(line)
         }
         if (member?.contacts == true) held += "contacts"
@@ -65,12 +71,14 @@ object GatewayStatus {
         return (active + empty).sortedBy { it.slot }
     }
 
-    /** One number's service state and signal bars (0–4, when in service); a slot with no card in it is "no_sim". */
-    fun line(context: Context, n: GatewayNumber): Pair<String, Int?> {
+    /**
+     * One number's service state and its signal (bars 0–4 by the gateway's own scale, SIGNAL_BARS.md, when in
+     * service); a slot with no card in it is "no_sim".
+     */
+    fun line(context: Context, n: GatewayNumber): Pair<String, SignalScale.Signal?> {
         if (!n.active) return "no_sim" to null
         val tm = runCatching { context.getSystemService(TelephonyManager::class.java).createForSubscriptionId(n.subscriptionId) }.getOrNull()
-        // The best of the card's cells, as the status bar shows it; the overall level reads low on some phones (2026-11-13).
-        val signal = runCatching { tm?.signalStrength?.let { s -> s.cellSignalStrengths.maxOfOrNull { it.level } ?: s.level } }.getOrNull()
+        val signal = runCatching { tm?.signalStrength?.let { s -> SignalScale.of(SignalScale.cells(s), s.level) } }.getOrNull()
         var state = state(tm)
         // Some phones give no service state without the location permission (the Redmi on Android 13, 2026-11-13):
         // a card registered on a network names that network's operator, one that is not names none.

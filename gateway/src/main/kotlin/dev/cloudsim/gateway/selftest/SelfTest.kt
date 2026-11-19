@@ -53,7 +53,8 @@ data class RelayFacts(
 
 data class DirectFacts(val wifiV6: Boolean, val mapping: String, val cellular: String)
 
-data class LineFacts(val slot: Int, val state: String, val signal: Int?)
+/** [detail]: what the bars came from, like "5G · -93 dBm · SINR 19 dB" (SIGNAL_BARS.md). */
+data class LineFacts(val slot: Int, val state: String, val signal: Int?, val detail: String? = null)
 
 data class KeepFacts(
     val batteryExempt: Boolean, val powerSave: Boolean, val broken: Int,
@@ -170,7 +171,7 @@ object Judge {
         if (list.isEmpty()) return Check("sim", title, Level.FAIL, L.t("没有读到 SIM 卡"))
         val text = list.joinToString("\n") { l ->
             val state = when (l.state) {
-                "in_service" -> L.t("有服务") + (l.signal?.let { L.t("，信号 %1\$s/4", it) } ?: "")
+                "in_service" -> L.t("有服务") + (l.signal?.let { L.t("，信号 %1\$s/4", it) } ?: "") + (l.detail?.let { " · $it" } ?: "")
                 "no_sim" -> L.t("没插卡，已停用")
                 "no_service" -> L.t("无服务")
                 "emergency_only" -> L.t("只能拨紧急电话（卡可能停机或欠费）")
@@ -182,8 +183,7 @@ object Judge {
         val inService = list.count { it.state == "in_service" }
         // A slot with no card in it is stopped on purpose (2026-11-11) and is not a problem.
         val bad = list.count { it.state != "in_service" && it.state != "no_sim" }
-        // Only none at all: Android's own scale is stricter than the bars a phone draws (a Redmi at -99 dBm on 5G
-        // shows nearly full bars and reports 1 of 4, 2026-11-13), so a low number alone is not a warning.
+        // Only none at all: one bar (a poor SINR, say) still carries calls (SIGNAL_BARS.md 2).
         val weak = list.any { it.state == "in_service" && it.signal == 0 }
         val level = when {
             inService == 0 -> Level.FAIL

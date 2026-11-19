@@ -38,8 +38,8 @@ android {
         applicationId = "app.simnest.gateway"
         minSdk = 29
         targetSdk = 36
-        versionCode = 117
-        versionName = "0.44.1"
+        versionCode = 118
+        versionName = "0.44.2"
         // The Redmi gateway is arm64; WebRTC's native library is large, so ship that one ABI only.
         ndk { abiFilters += "arm64-v8a" }
         buildConfigField("String", "SERVICE_ADDRESS", quoted("address"))
